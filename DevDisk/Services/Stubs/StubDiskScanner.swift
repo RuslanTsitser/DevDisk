@@ -5,13 +5,21 @@ struct StubDiskScanner: DiskScanning {
 
     func scan(
         _ root: URL,
-        onProgress: @escaping DiskScanProgressHandler
+        onProgress: @escaping DiskScanProgressHandler,
+        onDirectoryScanned: @escaping ScannedDirectoryHandler
     ) async throws -> DiskScanResult {
         onProgress(
             ScanProgress(
                 rootURL: root,
                 currentURL: result.root.url,
                 itemsScanned: result.root.fileCount
+            )
+        )
+        onDirectoryScanned(
+            ScannedDirectory(
+                url: result.root.url,
+                allocatedSize: result.root.allocatedSize,
+                fileCount: result.root.fileCount
             )
         )
         return result

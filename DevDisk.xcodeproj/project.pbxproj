@@ -15,6 +15,7 @@
 		3DA43B33C79A604D6AD22446 /* FileManagerTrashService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A002392778526D294A071F4 /* FileManagerTrashService.swift */; };
 		3F85BB14EFCBC6D21949F17F /* StubDiskScanStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EDF7C5EF9F1E29EF5010781 /* StubDiskScanStore.swift */; };
 		51DC8470BBCF22582CFD8107 /* ScanProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60F6EA476EB4080EB7840C6 /* ScanProgress.swift */; };
+		67F1A4D4B4C7F106F913E128 /* ScannedDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C80EEFAC6CEA490BC414A1 /* ScannedDirectory.swift */; };
 		692C35906F9189FB8DD6819F /* RuleBasedArtifactDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD1463FCD2A71C140D2DBC2D /* RuleBasedArtifactDetectorTests.swift */; };
 		7D3E800530D273549C8769E5 /* FileTrashing.swift in Sources */ = {isa = PBXBuildFile; fileRef = D35F96B47C4217AA3F144129 /* FileTrashing.swift */; };
 		860BE27CCF9918C1D8896830 /* ArtifactDetecting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1368B0795E54339592960D8B /* ArtifactDetecting.swift */; };
@@ -69,6 +70,7 @@
 		983821BD31FAAB0A3A5E2772 /* DiskScanStoring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskScanStoring.swift; sourceTree = "<group>"; };
 		9DC76761718BF24E52D1571F /* DeveloperArtifact.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperArtifact.swift; sourceTree = "<group>"; };
 		A0A5647C8AE4E962B43CD483 /* JSONDiskScanStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONDiskScanStore.swift; sourceTree = "<group>"; };
+		A4C80EEFAC6CEA490BC414A1 /* ScannedDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannedDirectory.swift; sourceTree = "<group>"; };
 		B695497FC2E1969FC114F68F /* DesktopRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopRouter.swift; sourceTree = "<group>"; };
 		BD30A27D4620C1BE1DE67F03 /* RuleBasedArtifactDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuleBasedArtifactDetector.swift; sourceTree = "<group>"; };
 		D35F96B47C4217AA3F144129 /* FileTrashing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTrashing.swift; sourceTree = "<group>"; };
@@ -204,6 +206,7 @@
 				1F8D7917D9090D44E2141DFA /* DiskScanResult.swift */,
 				8E5ABBA6E78FEDCD06B82699 /* FileNode.swift */,
 				3A0B9C2B99DC6704935FA7E9 /* SavedDiskScan.swift */,
+				A4C80EEFAC6CEA490BC414A1 /* ScannedDirectory.swift */,
 				D60F6EA476EB4080EB7840C6 /* ScanProgress.swift */,
 			);
 			path = Models;
@@ -378,6 +381,7 @@
 				D092D0D086AF1E88512A762D /* SavedDiskScan.swift in Sources */,
 				C0CB65BD8AD1943988E7E5E3 /* ScanDiskUseCase.swift in Sources */,
 				51DC8470BBCF22582CFD8107 /* ScanProgress.swift in Sources */,
+				67F1A4D4B4C7F106F913E128 /* ScannedDirectory.swift in Sources */,
 				3F85BB14EFCBC6D21949F17F /* StubDiskScanStore.swift in Sources */,
 				F6D16038CB2618E1EC9B94BD /* StubDiskScanner.swift in Sources */,
 				A1A884C872BC223D3B7058D5 /* StubFileChangeMonitor.swift in Sources */,

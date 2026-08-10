@@ -16,6 +16,7 @@ final class DiskExplorerViewState {
     private(set) var scannedAt: Date?
     private(set) var pendingDeletion: FileNode?
     private(set) var deletionError: String?
+    private(set) var scannedDirectories: [ScannedDirectory]
     private let scanDisk: ScanDiskUseCase
     private let store: any DiskScanStoring
     private let monitor: any FileChangeMonitoring
@@ -28,12 +29,14 @@ final class DiskExplorerViewState {
         store: any DiskScanStoring,
         monitor: any FileChangeMonitoring,
         trashService: any FileTrashing,
+        initialScannedDirectories: [ScannedDirectory] = [],
         initialPhase: Phase = .idle
     ) {
         self.scanDisk = scanDisk
         self.store = store
         self.monitor = monitor
         self.trashService = trashService
+        scannedDirectories = initialScannedDirectories
         phase = initialPhase
     }
 
@@ -109,16 +112,26 @@ final class DiskExplorerViewState {
     private func scan(_ url: URL) async {
         monitor.stopMonitoring()
         isStale = false
+        scannedDirectories = []
         phase = .scanning(
             ScanProgress(rootURL: url, currentURL: url, itemsScanned: 0)
         )
         do {
-            let result = try await scanDisk(url) { [weak self] progress in
-                Task { @MainActor [weak self] in
-                    guard case .scanning = self?.phase else { return }
-                    self?.phase = .scanning(progress)
+            let result = try await scanDisk(
+                url,
+                onProgress: { [weak self] progress in
+                    Task { @MainActor [weak self] in
+                        guard case .scanning = self?.phase else { return }
+                        self?.phase = .scanning(progress)
+                    }
+                },
+                onDirectoryScanned: { [weak self] directory in
+                    Task { @MainActor [weak self] in
+                        guard case .scanning = self?.phase else { return }
+                        self?.recordScannedDirectory(directory)
+                    }
                 }
-            }
+            )
             phase = .loaded(result)
             scannedAt = Date()
             try? store.save(result, rootURL: url, scannedAt: scannedAt ?? Date())
@@ -137,6 +150,14 @@ final class DiskExplorerViewState {
                 guard case .loaded = self?.phase else { return }
                 self?.isStale = true
             }
+        }
+    }
+
+    private func recordScannedDirectory(_ directory: ScannedDirectory) {
+        scannedDirectories.removeAll { $0.id == directory.id }
+        scannedDirectories.insert(directory, at: 0)
+        if scannedDirectories.count > 100 {
+            scannedDirectories.removeLast(scannedDirectories.count - 100)
         }
     }
 }

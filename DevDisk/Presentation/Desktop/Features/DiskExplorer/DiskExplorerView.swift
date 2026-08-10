@@ -82,26 +82,61 @@ struct DiskExplorerView: View {
                 description: Text("DevDisk shows directory sizes and recognizes development artifacts.")
             )
         case let .scanning(progress):
-            VStack(spacing: 12) {
-                ProgressView()
-                    .controlSize(.large)
-                Text("Scanning \(progress.rootURL.lastPathComponent)…")
-                    .font(.headline)
-                Text(progress.currentURL.path(percentEncoded: false))
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2, reservesSpace: true)
-                    .truncationMode(.middle)
-                    .textSelection(.enabled)
-                Text("\(progress.itemsScanned.formatted()) items inspected")
+            VStack(spacing: 0) {
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) {
+                        ProgressView().controlSize(.small)
+                        Text("Scanning \(progress.rootURL.lastPathComponent)…")
+                            .font(.headline)
+                    }
+                    Text(progress.currentURL.path(percentEncoded: false))
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2, reservesSpace: true)
+                        .truncationMode(.middle)
+                        .textSelection(.enabled)
+                    HStack {
+                        Text("\(progress.itemsScanned.formatted()) items inspected")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Cancel Scan", role: .cancel) {
+                            state.cancelScan()
+                        }
+                        .keyboardShortcut(.cancelAction)
+                    }
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
-                Button("Cancel Scan", role: .cancel) {
-                    state.cancelScan()
                 }
-                .keyboardShortcut(.cancelAction)
+                .padding(16)
+                Divider()
+                if state.scannedDirectories.isEmpty {
+                    ContentUnavailableView(
+                        "Waiting for the first directory",
+                        systemImage: "folder.badge.clock",
+                        description: Text("Completed directories will appear here while the scan continues.")
+                    )
+                } else {
+                    List(state.scannedDirectories) { directory in
+                        HStack(spacing: 10) {
+                            Image(systemName: "folder").foregroundStyle(.blue)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(directory.name).lineLimit(1)
+                                Text(directory.url.path(percentEncoded: false))
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
+                            Spacer()
+                            Text("\(directory.fileCount.formatted()) files")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                            Text(directory.allocatedSize, format: .byteCount(style: .file))
+                                .monospacedDigit()
+                                .frame(minWidth: 90, alignment: .trailing)
+                        }
+                    }
+                }
             }
-            .padding(40)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         case let .loaded(result):
             VStack(spacing: 0) {
@@ -210,6 +245,18 @@ struct DiskExplorerView: View {
             store: StubDiskScanStore.empty,
             monitor: StubFileChangeMonitor(),
             trashService: StubTrashService(),
+            initialScannedDirectories: [
+                ScannedDirectory(
+                    url: root.appending(path: "Library/Developer/CoreSimulator/Caches"),
+                    allocatedSize: 8_400_000_000,
+                    fileCount: 42_310
+                ),
+                ScannedDirectory(
+                    url: root.appending(path: "Projects/client-app/node_modules"),
+                    allocatedSize: 2_700_000_000,
+                    fileCount: 18_642
+                )
+            ],
             initialPhase: .scanning(
                 ScanProgress(
                     rootURL: root,

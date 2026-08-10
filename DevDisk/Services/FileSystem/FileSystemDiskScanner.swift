@@ -9,7 +9,8 @@ struct FileSystemDiskScanner: DiskScanning {
 
     func scan(
         _ root: URL,
-        onProgress: @escaping DiskScanProgressHandler
+        onProgress: @escaping DiskScanProgressHandler,
+        onDirectoryScanned: @escaping ScannedDirectoryHandler
     ) async throws -> DiskScanResult {
         let didStartSecurityScope = root.startAccessingSecurityScopedResource()
         defer {
@@ -19,7 +20,11 @@ struct FileSystemDiskScanner: DiskScanning {
         }
 
         let worker = Task.detached(priority: .userInitiated) {
-            var context = ScanContext(rootURL: root, onProgress: onProgress)
+            var context = ScanContext(
+                rootURL: root,
+                onProgress: onProgress,
+                onDirectoryScanned: onDirectoryScanned
+            )
             let volumeValues = try? root.resourceValues(forKeys: [
                 .volumeTotalCapacityKey,
                 .volumeAvailableCapacityKey
@@ -84,7 +89,7 @@ struct FileSystemDiskScanner: DiskScanning {
             }
         }.sorted { $0.allocatedSize > $1.allocatedSize }
 
-        return FileNode(
+        let node = FileNode(
             id: url,
             url: url,
             name: url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent,
@@ -94,16 +99,44 @@ struct FileSystemDiskScanner: DiskScanning {
             artifact: detector.detect(url: url, isDirectory: true),
             children: children
         )
+        context.reportCompletedDirectory(node)
+        return node
     }
 
     private struct ScanContext {
         let rootURL: URL
         let onProgress: DiskScanProgressHandler
+        let onDirectoryScanned: ScannedDirectoryHandler
         private(set) var itemsScanned = 0
         private(set) var skippedItemCount = 0
+        private var directoriesCompleted = 0
+
+        init(
+            rootURL: URL,
+            onProgress: @escaping DiskScanProgressHandler,
+            onDirectoryScanned: @escaping ScannedDirectoryHandler
+        ) {
+            self.rootURL = rootURL
+            self.onProgress = onProgress
+            self.onDirectoryScanned = onDirectoryScanned
+        }
 
         mutating func recordSkippedItem() {
             skippedItemCount += 1
+        }
+
+        mutating func reportCompletedDirectory(_ node: FileNode) {
+            directoriesCompleted += 1
+            guard directoriesCompleted == 1 || directoriesCompleted.isMultiple(of: 25) || node.url == rootURL else {
+                return
+            }
+            onDirectoryScanned(
+                ScannedDirectory(
+                    url: node.url,
+                    allocatedSize: node.allocatedSize,
+                    fileCount: node.fileCount
+                )
+            )
         }
 
         mutating func report(_ currentURL: URL, force: Bool = false) {
