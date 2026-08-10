@@ -8,7 +8,14 @@ struct FileSystemDiskScanner: DiskScanning {
     }
 
     func scan(_ root: URL) async throws -> FileNode {
-        try await Task.detached(priority: .userInitiated) {
+        let didStartSecurityScope = root.startAccessingSecurityScopedResource()
+        defer {
+            if didStartSecurityScope {
+                root.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        return try await Task.detached(priority: .userInitiated) {
             try scanNode(root)
         }.value
     }
@@ -60,4 +67,3 @@ struct FileSystemDiskScanner: DiskScanning {
         )
     }
 }
-
