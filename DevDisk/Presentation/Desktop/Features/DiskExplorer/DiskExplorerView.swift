@@ -16,6 +16,7 @@ struct DiskExplorerView: View {
             content
         }
         .frame(minWidth: 860, minHeight: 560)
+        .task { state.restoreIfNeeded() }
         .fileImporter(
             isPresented: $presentsFolderPicker,
             allowedContentTypes: [.folder],
@@ -24,6 +25,32 @@ struct DiskExplorerView: View {
             guard case let .success(urls) = result, let url = urls.first else { return }
             state.startScan(url)
         }
+        .confirmationDialog(
+            "Move to Trash?",
+            isPresented: Binding(
+                get: { state.pendingDeletion != nil },
+                set: { if !$0 { state.cancelDeletion() } }
+            ),
+            presenting: state.pendingDeletion
+        ) { _ in
+            Button("Move to Trash", role: .destructive) {
+                Task { await state.confirmDeletion() }
+            }
+            Button("Cancel", role: .cancel) { state.cancelDeletion() }
+        } message: { node in
+            Text("\(node.name) uses \(node.allocatedSize.formatted(.byteCount(style: .file))). It can be restored from Trash.")
+        }
+        .alert(
+            "Deletion Failed",
+            isPresented: Binding(
+                get: { state.deletionError != nil },
+                set: { if !$0 { state.dismissDeletionError() } }
+            )
+        ) {
+            Button("OK") { state.dismissDeletionError() }
+        } message: {
+            Text(state.deletionError ?? "Unknown error")
+        }
     }
 
     private var toolbar: some View {
@@ -31,6 +58,12 @@ struct DiskExplorerView: View {
             Text("DevDisk")
                 .font(.headline)
             Spacer()
+            if state.currentRootURL != nil {
+                Button("Rescan", systemImage: "arrow.clockwise") {
+                    state.rescan()
+                }
+                .keyboardShortcut("r")
+            }
             Button("Scan Folder or Disk") {
                 presentsFolderPicker = true
             }
@@ -72,6 +105,17 @@ struct DiskExplorerView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         case let .loaded(result):
             VStack(spacing: 0) {
+                if state.isStale {
+                    HStack {
+                        Label("Files changed since this scan. Sizes may be outdated.", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
+                        Spacer()
+                        Button("Rescan") { state.rescan() }
+                    }
+                    .font(.callout)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(.orange.opacity(0.12))
+                }
                 scanSummary(result)
                 Divider()
                 List([result.root], children: \.children) { node in
@@ -92,6 +136,13 @@ struct DiskExplorerView: View {
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
                     }
+                    .contextMenu {
+                        if node.url != result.root.url {
+                            Button("Move to Trash", systemImage: "trash", role: .destructive) {
+                                state.requestDeletion(node)
+                            }
+                        }
+                    }
                 }
             }
         case let .failed(message):
@@ -111,6 +162,13 @@ struct DiskExplorerView: View {
                     .font(.caption.monospaced())
                     .lineLimit(1)
                     .truncationMode(.middle)
+            }
+            if let scannedAt = state.scannedAt {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Scanned").font(.caption).foregroundStyle(.secondary)
+                    Text(scannedAt, format: .dateTime.hour().minute())
+                        .font(.caption)
+                }
             }
             Spacer()
             if result.skippedItemCount > 0 {
@@ -136,6 +194,9 @@ struct DiskExplorerView: View {
     DiskExplorerView(
         state: DiskExplorerViewState(
             scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
+            store: StubDiskScanStore.empty,
+            monitor: StubFileChangeMonitor(),
+            trashService: StubTrashService(),
             initialPhase: .idle
         )
     )
@@ -146,6 +207,9 @@ struct DiskExplorerView: View {
     DiskExplorerView(
         state: DiskExplorerViewState(
             scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
+            store: StubDiskScanStore.empty,
+            monitor: StubFileChangeMonitor(),
+            trashService: StubTrashService(),
             initialPhase: .scanning(
                 ScanProgress(
                     rootURL: root,
@@ -161,6 +225,9 @@ struct DiskExplorerView: View {
     DiskExplorerView(
         state: DiskExplorerViewState(
             scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
+            store: StubDiskScanStore.empty,
+            monitor: StubFileChangeMonitor(),
+            trashService: StubTrashService(),
             initialPhase: .loaded(StubDiskScanner.preview.result)
         )
     )
@@ -181,6 +248,9 @@ struct DiskExplorerView: View {
     DiskExplorerView(
         state: DiskExplorerViewState(
             scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
+            store: StubDiskScanStore.empty,
+            monitor: StubFileChangeMonitor(),
+            trashService: StubTrashService(),
             initialPhase: .loaded(
                 DiskScanResult(
                     root: emptyRoot,
@@ -197,6 +267,9 @@ struct DiskExplorerView: View {
     DiskExplorerView(
         state: DiskExplorerViewState(
             scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
+            store: StubDiskScanStore.empty,
+            monitor: StubFileChangeMonitor(),
+            trashService: StubTrashService(),
             initialPhase: .failed(
                 "DevDisk couldn’t read this location. Choose another folder or review its privacy permissions."
             )

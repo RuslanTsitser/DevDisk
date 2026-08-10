@@ -1,7 +1,7 @@
 import Foundation
 
-struct DeveloperArtifact: Hashable, Sendable {
-    enum Ecosystem: String, Hashable, Sendable {
+struct DeveloperArtifact: Codable, Hashable, Sendable {
+    enum Ecosystem: String, Codable, Hashable, Sendable {
         case apple = "Apple"
         case android = "Android"
         case flutter = "Flutter"
@@ -13,7 +13,7 @@ struct DeveloperArtifact: Hashable, Sendable {
         case other = "Other"
     }
 
-    enum RemovalRisk: String, Hashable, Sendable {
+    enum RemovalRisk: String, Codable, Hashable, Sendable {
         case rebuildable = "Rebuildable"
         case redownloadable = "Redownloadable"
         case reviewFirst = "Review first"
@@ -23,4 +23,3 @@ struct DeveloperArtifact: Hashable, Sendable {
     let kind: String
     let removalRisk: RemovalRisk
 }
-

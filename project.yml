@@ -22,7 +22,7 @@ targets:
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
         CODE_SIGN_ENTITLEMENTS: DevDisk/DevDisk.entitlements
         ENABLE_APP_SANDBOX: YES
-        ENABLE_USER_SELECTED_FILES: readonly
+        ENABLE_USER_SELECTED_FILES: readwrite
     scheme:
       testTargets:
         - DevDiskTests
@@ -33,4 +33,3 @@ targets:
       - path: DevDiskTests
     dependencies:
       - target: DevDisk
-
