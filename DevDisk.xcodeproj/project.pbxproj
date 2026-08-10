@@ -1,0 +1,575 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		371B76293DA2827F8BEEE2C3 /* DesktopCompositionRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = E286ADD8A5B6A030F6CC79BC /* DesktopCompositionRoot.swift */; };
+		3C9C3B1863DC620CA620B777 /* DesktopRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 913D8A6709A27E734F3D3051 /* DesktopRoute.swift */; };
+		692C35906F9189FB8DD6819F /* RuleBasedArtifactDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD1463FCD2A71C140D2DBC2D /* RuleBasedArtifactDetectorTests.swift */; };
+		860BE27CCF9918C1D8896830 /* ArtifactDetecting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1368B0795E54339592960D8B /* ArtifactDetecting.swift */; };
+		B1A114F0FBB3597BF4DC546B /* DesktopApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 978CE70772CB7F6D5508266D /* DesktopApp.swift */; };
+		C0CB65BD8AD1943988E7E5E3 /* ScanDiskUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C2A6CB15234C66E7A2DE1F3 /* ScanDiskUseCase.swift */; };
+		C97D8F07BD7FAE5C9D28B246 /* RuleBasedArtifactDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD30A27D4620C1BE1DE67F03 /* RuleBasedArtifactDetector.swift */; };
+		D26A90BFE5B6B1351634E7ED /* DiskScanning.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FC1474DE2ABF534971A5674 /* DiskScanning.swift */; };
+		D67EC9144B6AD672286AC6F7 /* DiskExplorerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 215B715AA5867469F70BD2AC /* DiskExplorerView.swift */; };
+		D88C88650F1A096B9E1E913C /* FileSystemDiskScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8187025103F009A47788D16A /* FileSystemDiskScanner.swift */; };
+		E1512668B2ECDA1DA91CEED1 /* ScanDiskUseCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1587F525B32336BC35E519B /* ScanDiskUseCaseTests.swift */; };
+		E890011F6C1CDE906206EBFE /* FileNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E5ABBA6E78FEDCD06B82699 /* FileNode.swift */; };
+		EA8E4C4EDE3FB26C1F8FF1BE /* DesktopRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B695497FC2E1969FC114F68F /* DesktopRouter.swift */; };
+		EACCC0DCA32012E2D5EB1E6B /* DiskExplorerViewState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7AFC290DAC8CDB096663903 /* DiskExplorerViewState.swift */; };
+		F03183F962E5C3A60D6E835D /* DeveloperArtifact.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DC76761718BF24E52D1571F /* DeveloperArtifact.swift */; };
+		F6D16038CB2618E1EC9B94BD /* StubDiskScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 478D312EA5851F1BF9F6CC25 /* StubDiskScanner.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C557515E867D315DAE31077F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B0DF549FADABDC08DAA79870 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2BC65EEAA18109188D963C4E;
+			remoteInfo = DevDisk;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		1368B0795E54339592960D8B /* ArtifactDetecting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtifactDetecting.swift; sourceTree = "<group>"; };
+		169B42D71BD434330E644476 /* DevDisk.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DevDisk.entitlements; sourceTree = "<group>"; };
+		215B715AA5867469F70BD2AC /* DiskExplorerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskExplorerView.swift; sourceTree = "<group>"; };
+		478D312EA5851F1BF9F6CC25 /* StubDiskScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubDiskScanner.swift; sourceTree = "<group>"; };
+		7C2A6CB15234C66E7A2DE1F3 /* ScanDiskUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanDiskUseCase.swift; sourceTree = "<group>"; };
+		7FC1474DE2ABF534971A5674 /* DiskScanning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskScanning.swift; sourceTree = "<group>"; };
+		802D3416D309DB8D971059DD /* DevDisk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DevDisk.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8187025103F009A47788D16A /* FileSystemDiskScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemDiskScanner.swift; sourceTree = "<group>"; };
+		8E5ABBA6E78FEDCD06B82699 /* FileNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileNode.swift; sourceTree = "<group>"; };
+		913D8A6709A27E734F3D3051 /* DesktopRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopRoute.swift; sourceTree = "<group>"; };
+		978CE70772CB7F6D5508266D /* DesktopApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopApp.swift; sourceTree = "<group>"; };
+		9DC76761718BF24E52D1571F /* DeveloperArtifact.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperArtifact.swift; sourceTree = "<group>"; };
+		B695497FC2E1969FC114F68F /* DesktopRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopRouter.swift; sourceTree = "<group>"; };
+		BD30A27D4620C1BE1DE67F03 /* RuleBasedArtifactDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuleBasedArtifactDetector.swift; sourceTree = "<group>"; };
+		DB02AEA89B75D8F992A26562 /* DevDiskTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DevDiskTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DD1463FCD2A71C140D2DBC2D /* RuleBasedArtifactDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuleBasedArtifactDetectorTests.swift; sourceTree = "<group>"; };
+		E286ADD8A5B6A030F6CC79BC /* DesktopCompositionRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopCompositionRoot.swift; sourceTree = "<group>"; };
+		F1587F525B32336BC35E519B /* ScanDiskUseCaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanDiskUseCaseTests.swift; sourceTree = "<group>"; };
+		F7AFC290DAC8CDB096663903 /* DiskExplorerViewState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskExplorerViewState.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		1022840083C6ACBA70B3FBB4 /* Desktop */ = {
+			isa = PBXGroup;
+			children = (
+				E0F5B9CC15C1C59C34129123 /* Features */,
+				A63229260B228C12F520BAE4 /* Navigation */,
+			);
+			path = Desktop;
+			sourceTree = "<group>";
+		};
+		1E9609106372BF6E9E664332 /* Stubs */ = {
+			isa = PBXGroup;
+			children = (
+				478D312EA5851F1BF9F6CC25 /* StubDiskScanner.swift */,
+			);
+			path = Stubs;
+			sourceTree = "<group>";
+		};
+		2C08146E5760BFF43CA6D9C2 /* DevDisk */ = {
+			isa = PBXGroup;
+			children = (
+				169B42D71BD434330E644476 /* DevDisk.entitlements */,
+				CAF8BA204A577D28CAA14C4B /* App */,
+				31969995EB8E24EDAEF41231 /* Core */,
+				D7E032486EB358F1E32E8225 /* Presentation */,
+				E4CA42D05FA62BE6AABCD4C9 /* Services */,
+			);
+			path = DevDisk;
+			sourceTree = "<group>";
+		};
+		31969995EB8E24EDAEF41231 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				BB2AE584A8C5266F0CB6F420 /* Models */,
+				C6305885105834682EA910CC /* Protocols */,
+				8BEB007D54B44907518F4767 /* UseCases */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		3A4BA0CC1F1F57FE57EED615 /* FileSystem */ = {
+			isa = PBXGroup;
+			children = (
+				8187025103F009A47788D16A /* FileSystemDiskScanner.swift */,
+				BD30A27D4620C1BE1DE67F03 /* RuleBasedArtifactDetector.swift */,
+			);
+			path = FileSystem;
+			sourceTree = "<group>";
+		};
+		5A77535B950C4B71CE69017E /* DevDiskTests */ = {
+			isa = PBXGroup;
+			children = (
+				EA4745DE78D5AFAA03E8EE2F /* CoreTests */,
+				F2A6B6F8813A0700E62A68A1 /* ServiceTests */,
+			);
+			path = DevDiskTests;
+			sourceTree = "<group>";
+		};
+		83E69242C58D36D3DB7E73A2 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				802D3416D309DB8D971059DD /* DevDisk.app */,
+				DB02AEA89B75D8F992A26562 /* DevDiskTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		8BEB007D54B44907518F4767 /* UseCases */ = {
+			isa = PBXGroup;
+			children = (
+				7C2A6CB15234C66E7A2DE1F3 /* ScanDiskUseCase.swift */,
+			);
+			path = UseCases;
+			sourceTree = "<group>";
+		};
+		9A8F39AF25CA766344E4434F /* CompositionRoot */ = {
+			isa = PBXGroup;
+			children = (
+				E286ADD8A5B6A030F6CC79BC /* DesktopCompositionRoot.swift */,
+			);
+			path = CompositionRoot;
+			sourceTree = "<group>";
+		};
+		A63229260B228C12F520BAE4 /* Navigation */ = {
+			isa = PBXGroup;
+			children = (
+				913D8A6709A27E734F3D3051 /* DesktopRoute.swift */,
+				B695497FC2E1969FC114F68F /* DesktopRouter.swift */,
+			);
+			path = Navigation;
+			sourceTree = "<group>";
+		};
+		A844421D30D736AFCF4F3F8E /* DiskExplorer */ = {
+			isa = PBXGroup;
+			children = (
+				215B715AA5867469F70BD2AC /* DiskExplorerView.swift */,
+				F7AFC290DAC8CDB096663903 /* DiskExplorerViewState.swift */,
+			);
+			path = DiskExplorer;
+			sourceTree = "<group>";
+		};
+		BB2AE584A8C5266F0CB6F420 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				9DC76761718BF24E52D1571F /* DeveloperArtifact.swift */,
+				8E5ABBA6E78FEDCD06B82699 /* FileNode.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		C6305885105834682EA910CC /* Protocols */ = {
+			isa = PBXGroup;
+			children = (
+				1368B0795E54339592960D8B /* ArtifactDetecting.swift */,
+				7FC1474DE2ABF534971A5674 /* DiskScanning.swift */,
+			);
+			path = Protocols;
+			sourceTree = "<group>";
+		};
+		CAF8BA204A577D28CAA14C4B /* App */ = {
+			isa = PBXGroup;
+			children = (
+				978CE70772CB7F6D5508266D /* DesktopApp.swift */,
+				9A8F39AF25CA766344E4434F /* CompositionRoot */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		D7E032486EB358F1E32E8225 /* Presentation */ = {
+			isa = PBXGroup;
+			children = (
+				1022840083C6ACBA70B3FBB4 /* Desktop */,
+			);
+			path = Presentation;
+			sourceTree = "<group>";
+		};
+		E0F5B9CC15C1C59C34129123 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				A844421D30D736AFCF4F3F8E /* DiskExplorer */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		E4CA42D05FA62BE6AABCD4C9 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				3A4BA0CC1F1F57FE57EED615 /* FileSystem */,
+				1E9609106372BF6E9E664332 /* Stubs */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		EA4745DE78D5AFAA03E8EE2F /* CoreTests */ = {
+			isa = PBXGroup;
+			children = (
+				F1587F525B32336BC35E519B /* ScanDiskUseCaseTests.swift */,
+			);
+			path = CoreTests;
+			sourceTree = "<group>";
+		};
+		EE7E9BF29A87502D8338B2F4 = {
+			isa = PBXGroup;
+			children = (
+				2C08146E5760BFF43CA6D9C2 /* DevDisk */,
+				5A77535B950C4B71CE69017E /* DevDiskTests */,
+				83E69242C58D36D3DB7E73A2 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F2A6B6F8813A0700E62A68A1 /* ServiceTests */ = {
+			isa = PBXGroup;
+			children = (
+				DD1463FCD2A71C140D2DBC2D /* RuleBasedArtifactDetectorTests.swift */,
+			);
+			path = ServiceTests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2BC65EEAA18109188D963C4E /* DevDisk */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1D4D53900E791E44FA3334D1 /* Build configuration list for PBXNativeTarget "DevDisk" */;
+			buildPhases = (
+				3660E51602AFD52C4EDBE38D /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DevDisk;
+			packageProductDependencies = (
+			);
+			productName = DevDisk;
+			productReference = 802D3416D309DB8D971059DD /* DevDisk.app */;
+			productType = "com.apple.product-type.application";
+		};
+		8F6BAAC72705CBC74C295DDC /* DevDiskTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9F0EEB07C5E799D50471A7CA /* Build configuration list for PBXNativeTarget "DevDiskTests" */;
+			buildPhases = (
+				43FCB0F3EE85F4435AA0D035 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				6EFA0E304A17516F991F7C75 /* PBXTargetDependency */,
+			);
+			name = DevDiskTests;
+			packageProductDependencies = (
+			);
+			productName = DevDiskTests;
+			productReference = DB02AEA89B75D8F992A26562 /* DevDiskTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B0DF549FADABDC08DAA79870 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 2848497C2B0DB79785AD4049 /* Build configuration list for PBXProject "DevDisk" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = EE7E9BF29A87502D8338B2F4;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 83E69242C58D36D3DB7E73A2 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				2BC65EEAA18109188D963C4E /* DevDisk */,
+				8F6BAAC72705CBC74C295DDC /* DevDiskTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		3660E51602AFD52C4EDBE38D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				860BE27CCF9918C1D8896830 /* ArtifactDetecting.swift in Sources */,
+				B1A114F0FBB3597BF4DC546B /* DesktopApp.swift in Sources */,
+				371B76293DA2827F8BEEE2C3 /* DesktopCompositionRoot.swift in Sources */,
+				3C9C3B1863DC620CA620B777 /* DesktopRoute.swift in Sources */,
+				EA8E4C4EDE3FB26C1F8FF1BE /* DesktopRouter.swift in Sources */,
+				F03183F962E5C3A60D6E835D /* DeveloperArtifact.swift in Sources */,
+				D67EC9144B6AD672286AC6F7 /* DiskExplorerView.swift in Sources */,
+				EACCC0DCA32012E2D5EB1E6B /* DiskExplorerViewState.swift in Sources */,
+				D26A90BFE5B6B1351634E7ED /* DiskScanning.swift in Sources */,
+				E890011F6C1CDE906206EBFE /* FileNode.swift in Sources */,
+				D88C88650F1A096B9E1E913C /* FileSystemDiskScanner.swift in Sources */,
+				C97D8F07BD7FAE5C9D28B246 /* RuleBasedArtifactDetector.swift in Sources */,
+				C0CB65BD8AD1943988E7E5E3 /* ScanDiskUseCase.swift in Sources */,
+				F6D16038CB2618E1EC9B94BD /* StubDiskScanner.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		43FCB0F3EE85F4435AA0D035 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				692C35906F9189FB8DD6819F /* RuleBasedArtifactDetectorTests.swift in Sources */,
+				E1512668B2ECDA1DA91CEED1 /* ScanDiskUseCaseTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		6EFA0E304A17516F991F7C75 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2BC65EEAA18109188D963C4E /* DevDisk */;
+			targetProxy = C557515E867D315DAE31077F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		8D90FD70BD5DD61F54D43AA8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		A86D316C4E3116834B525A19 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.devdisk.DevDiskTests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DevDisk.app/Contents/MacOS/DevDisk";
+			};
+			name = Debug;
+		};
+		A88BB3EE896549F8F0307A6C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		B46C70A3174B564B36CC95EA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.devdisk.DevDiskTests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DevDisk.app/Contents/MacOS/DevDisk";
+			};
+			name = Release;
+		};
+		EDE99F5F8A1C0CA015308ACA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = DevDisk/DevDisk.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = DevDisk;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.devdisk.app;
+				PRODUCT_NAME = DevDisk;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		FB8E0DC6C2E8475448BEC1EE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = DevDisk/DevDisk.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = DevDisk;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.devdisk.app;
+				PRODUCT_NAME = DevDisk;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1D4D53900E791E44FA3334D1 /* Build configuration list for PBXNativeTarget "DevDisk" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EDE99F5F8A1C0CA015308ACA /* Debug */,
+				FB8E0DC6C2E8475448BEC1EE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		2848497C2B0DB79785AD4049 /* Build configuration list for PBXProject "DevDisk" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8D90FD70BD5DD61F54D43AA8 /* Debug */,
+				A88BB3EE896549F8F0307A6C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9F0EEB07C5E799D50471A7CA /* Build configuration list for PBXNativeTarget "DevDiskTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A86D316C4E3116834B525A19 /* Debug */,
+				B46C70A3174B564B36CC95EA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = B0DF549FADABDC08DAA79870 /* Project object */;
+}
