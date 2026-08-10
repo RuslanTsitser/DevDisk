@@ -57,7 +57,7 @@ struct DiskExplorerView: View {
                 Text(progress.currentURL.path(percentEncoded: false))
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
-                    .lineLimit(3)
+                    .lineLimit(2, reservesSpace: true)
                     .truncationMode(.middle)
                     .textSelection(.enabled)
                 Text("\(progress.itemsScanned.formatted()) items inspected")
@@ -65,7 +65,7 @@ struct DiskExplorerView: View {
                     .foregroundStyle(.tertiary)
             }
             .padding(40)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         case let .loaded(result):
             VStack(spacing: 0) {
                 scanSummary(result)
