@@ -10,7 +10,7 @@ struct FileSystemDiskScanner: DiskScanning {
     func scan(
         _ root: URL,
         onProgress: @escaping DiskScanProgressHandler
-    ) async throws -> FileNode {
+    ) async throws -> DiskScanResult {
         let didStartSecurityScope = root.startAccessingSecurityScopedResource()
         defer {
             if didStartSecurityScope {
@@ -20,9 +20,18 @@ struct FileSystemDiskScanner: DiskScanning {
 
         return try await Task.detached(priority: .userInitiated) {
             var context = ScanContext(rootURL: root, onProgress: onProgress)
-            let result = try scanNode(root, context: &context)
+            let volumeValues = try? root.resourceValues(forKeys: [
+                .volumeTotalCapacityKey,
+                .volumeAvailableCapacityKey
+            ])
+            let node = try scanNode(root, context: &context)
             context.report(root, force: true)
-            return result
+            return DiskScanResult(
+                root: node,
+                skippedItemCount: context.skippedItemCount,
+                volumeTotalCapacity: volumeValues?.volumeTotalCapacity.map(Int64.init),
+                volumeAvailableCapacity: volumeValues?.volumeAvailableCapacity.map(Int64.init)
+            )
         }.value
     }
 
@@ -58,8 +67,15 @@ struct FileSystemDiskScanner: DiskScanning {
             includingPropertiesForKeys: Array(keys),
             options: [.skipsPackageDescendants]
         )
-        let children = childURLs.compactMap { childURL in
-            try? scanNode(childURL, context: &context)
+        let children = try childURLs.compactMap { childURL in
+            do {
+                return try scanNode(childURL, context: &context)
+            } catch let error as CancellationError {
+                throw error
+            } catch {
+                context.recordSkippedItem()
+                return nil
+            }
         }.sorted { $0.allocatedSize > $1.allocatedSize }
 
         return FileNode(
@@ -78,6 +94,11 @@ struct FileSystemDiskScanner: DiskScanning {
         let rootURL: URL
         let onProgress: DiskScanProgressHandler
         private(set) var itemsScanned = 0
+        private(set) var skippedItemCount = 0
+
+        mutating func recordSkippedItem() {
+            skippedItemCount += 1
+        }
 
         mutating func report(_ currentURL: URL, force: Bool = false) {
             if !force {

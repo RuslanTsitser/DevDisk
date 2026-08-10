@@ -66,28 +66,64 @@ struct DiskExplorerView: View {
             }
             .padding(40)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case let .loaded(root):
-            List([root], children: \.children) { node in
-                HStack {
-                    Image(systemName: node.isDirectory ? "folder" : "doc")
-                        .foregroundStyle(node.isDirectory ? .blue : .secondary)
-                    Text(node.name)
-                        .lineLimit(1)
-                    if let artifact = node.artifact {
-                        Text(artifact.ecosystem.rawValue)
-                            .font(.caption)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(.quaternary, in: Capsule())
+        case let .loaded(result):
+            VStack(spacing: 0) {
+                scanSummary(result)
+                Divider()
+                List([result.root], children: \.children) { node in
+                    HStack {
+                        Image(systemName: node.isDirectory ? "folder" : "doc")
+                            .foregroundStyle(node.isDirectory ? .blue : .secondary)
+                        Text(node.name)
+                            .lineLimit(1)
+                        if let artifact = node.artifact {
+                            Text(artifact.ecosystem.rawValue)
+                                .font(.caption)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(.quaternary, in: Capsule())
+                        }
+                        Spacer()
+                        Text(node.allocatedSize, format: .byteCount(style: .file))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
                     }
-                    Spacer()
-                    Text(node.allocatedSize, format: .byteCount(style: .file))
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
                 }
             }
         case let .failed(message):
             ContentUnavailableView("Scan failed", systemImage: "exclamationmark.triangle", description: Text(message))
+        }
+    }
+
+    private func scanSummary(_ result: DiskScanResult) -> some View {
+        HStack(spacing: 24) {
+            summaryValue("Scanned files", bytes: result.root.allocatedSize)
+            if let used = result.volumeUsedCapacity {
+                summaryValue("Entire volume used", bytes: used)
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Scope").font(.caption).foregroundStyle(.secondary)
+                Text(result.root.url.path(percentEncoded: false))
+                    .font(.caption.monospaced())
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer()
+            if result.skippedItemCount > 0 {
+                Label("\(result.skippedItemCount.formatted()) inaccessible items skipped", systemImage: "exclamationmark.shield")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .help("Grant access in System Settings, then scan the disk again.")
+            }
+        }
+        .padding(12)
+        .background(.bar)
+    }
+
+    private func summaryValue(_ title: String, bytes: Int64) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(bytes, format: .byteCount(style: .file)).font(.headline).monospacedDigit()
         }
     }
 }
@@ -141,7 +177,14 @@ struct DiskExplorerView: View {
     DiskExplorerView(
         state: DiskExplorerViewState(
             scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
-            initialPhase: .loaded(emptyRoot)
+            initialPhase: .loaded(
+                DiskScanResult(
+                    root: emptyRoot,
+                    skippedItemCount: 0,
+                    volumeTotalCapacity: 494_380_000_000,
+                    volumeAvailableCapacity: 94_990_000_000
+                )
+            )
         )
     )
 }

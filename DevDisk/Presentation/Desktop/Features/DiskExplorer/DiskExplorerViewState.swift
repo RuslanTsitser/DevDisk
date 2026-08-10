@@ -7,7 +7,7 @@ final class DiskExplorerViewState {
     enum Phase: Equatable {
         case idle
         case scanning(ScanProgress)
-        case loaded(FileNode)
+        case loaded(DiskScanResult)
         case failed(String)
     }
 
@@ -24,13 +24,13 @@ final class DiskExplorerViewState {
             ScanProgress(rootURL: url, currentURL: url, itemsScanned: 0)
         )
         do {
-            let root = try await scanDisk(url) { [weak self] progress in
+            let result = try await scanDisk(url) { [weak self] progress in
                 Task { @MainActor [weak self] in
                     guard case .scanning = self?.phase else { return }
                     self?.phase = .scanning(progress)
                 }
             }
-            phase = .loaded(root)
+            phase = .loaded(result)
         } catch is CancellationError {
             phase = .idle
         } catch {

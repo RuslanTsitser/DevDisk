@@ -10,7 +10,7 @@ struct ScanDiskUseCase: Sendable {
     func callAsFunction(
         _ root: URL,
         onProgress: @escaping DiskScanProgressHandler = { _ in }
-    ) async throws -> FileNode {
+    ) async throws -> DiskScanResult {
         try await scanner.scan(root, onProgress: onProgress)
     }
 }
