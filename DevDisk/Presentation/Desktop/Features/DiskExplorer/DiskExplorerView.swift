@@ -77,10 +77,60 @@ struct DiskExplorerView: View {
     }
 }
 
+#Preview("Empty") {
+    DiskExplorerView(
+        state: DiskExplorerViewState(
+            scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
+            initialPhase: .idle
+        )
+    )
+}
+
+#Preview("Scanning") {
+    DiskExplorerView(
+        state: DiskExplorerViewState(
+            scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
+            initialPhase: .scanning(URL(fileURLWithPath: "/Users/developer/Projects"))
+        )
+    )
+}
+
 #Preview("Loaded") {
     DiskExplorerView(
         state: DiskExplorerViewState(
-            scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview)
+            scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
+            initialPhase: .loaded(StubDiskScanner.preview.result)
+        )
+    )
+}
+
+#Preview("Empty Folder") {
+    let emptyRoot = FileNode(
+        id: URL(fileURLWithPath: "/Users/developer/EmptyProject"),
+        url: URL(fileURLWithPath: "/Users/developer/EmptyProject"),
+        name: "EmptyProject",
+        logicalSize: 0,
+        allocatedSize: 0,
+        fileCount: 0,
+        artifact: nil,
+        children: []
+    )
+
+    DiskExplorerView(
+        state: DiskExplorerViewState(
+            scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
+            initialPhase: .loaded(emptyRoot)
+        )
+    )
+}
+
+#Preview("Error") {
+    DiskExplorerView(
+        state: DiskExplorerViewState(
+            scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
+            initialPhase: .failed(
+                "DevDisk couldn’t read this location. Choose another folder or review its privacy permissions."
+            )
         )
     )
 }

@@ -11,11 +11,12 @@ final class DiskExplorerViewState {
         case failed(String)
     }
 
-    private(set) var phase: Phase = .idle
+    private(set) var phase: Phase
     private let scanDisk: ScanDiskUseCase
 
-    init(scanDisk: ScanDiskUseCase) {
+    init(scanDisk: ScanDiskUseCase, initialPhase: Phase = .idle) {
         self.scanDisk = scanDisk
+        phase = initialPhase
     }
 
     func scan(_ url: URL) async {
@@ -29,4 +30,3 @@ final class DiskExplorerViewState {
         }
     }
 }
-
