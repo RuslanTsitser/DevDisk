@@ -12,4 +12,3 @@ struct ScanDiskUseCaseTests {
         #expect(result.allocatedSize == 84_000_000_000)
     }
 }
-

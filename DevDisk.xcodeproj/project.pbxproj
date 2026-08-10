@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		371B76293DA2827F8BEEE2C3 /* DesktopCompositionRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = E286ADD8A5B6A030F6CC79BC /* DesktopCompositionRoot.swift */; };
 		3C9C3B1863DC620CA620B777 /* DesktopRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 913D8A6709A27E734F3D3051 /* DesktopRoute.swift */; };
+		51DC8470BBCF22582CFD8107 /* ScanProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60F6EA476EB4080EB7840C6 /* ScanProgress.swift */; };
 		692C35906F9189FB8DD6819F /* RuleBasedArtifactDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD1463FCD2A71C140D2DBC2D /* RuleBasedArtifactDetectorTests.swift */; };
 		860BE27CCF9918C1D8896830 /* ArtifactDetecting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1368B0795E54339592960D8B /* ArtifactDetecting.swift */; };
 		B1A114F0FBB3597BF4DC546B /* DesktopApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 978CE70772CB7F6D5508266D /* DesktopApp.swift */; };
@@ -50,6 +51,7 @@
 		9DC76761718BF24E52D1571F /* DeveloperArtifact.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperArtifact.swift; sourceTree = "<group>"; };
 		B695497FC2E1969FC114F68F /* DesktopRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopRouter.swift; sourceTree = "<group>"; };
 		BD30A27D4620C1BE1DE67F03 /* RuleBasedArtifactDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuleBasedArtifactDetector.swift; sourceTree = "<group>"; };
+		D60F6EA476EB4080EB7840C6 /* ScanProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanProgress.swift; sourceTree = "<group>"; };
 		DB02AEA89B75D8F992A26562 /* DevDiskTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DevDiskTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DD1463FCD2A71C140D2DBC2D /* RuleBasedArtifactDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuleBasedArtifactDetectorTests.swift; sourceTree = "<group>"; };
 		E286ADD8A5B6A030F6CC79BC /* DesktopCompositionRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopCompositionRoot.swift; sourceTree = "<group>"; };
@@ -163,6 +165,7 @@
 			children = (
 				9DC76761718BF24E52D1571F /* DeveloperArtifact.swift */,
 				8E5ABBA6E78FEDCD06B82699 /* FileNode.swift */,
+				D60F6EA476EB4080EB7840C6 /* ScanProgress.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -322,6 +325,7 @@
 				D88C88650F1A096B9E1E913C /* FileSystemDiskScanner.swift in Sources */,
 				C97D8F07BD7FAE5C9D28B246 /* RuleBasedArtifactDetector.swift in Sources */,
 				C0CB65BD8AD1943988E7E5E3 /* ScanDiskUseCase.swift in Sources */,
+				51DC8470BBCF22582CFD8107 /* ScanProgress.swift in Sources */,
 				F6D16038CB2618E1EC9B94BD /* StubDiskScanner.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

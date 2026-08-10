@@ -7,7 +7,10 @@ struct FileSystemDiskScanner: DiskScanning {
         self.detector = detector
     }
 
-    func scan(_ root: URL) async throws -> FileNode {
+    func scan(
+        _ root: URL,
+        onProgress: @escaping DiskScanProgressHandler
+    ) async throws -> FileNode {
         let didStartSecurityScope = root.startAccessingSecurityScopedResource()
         defer {
             if didStartSecurityScope {
@@ -16,12 +19,16 @@ struct FileSystemDiskScanner: DiskScanning {
         }
 
         return try await Task.detached(priority: .userInitiated) {
-            try scanNode(root)
+            var context = ScanContext(rootURL: root, onProgress: onProgress)
+            let result = try scanNode(root, context: &context)
+            context.report(root, force: true)
+            return result
         }.value
     }
 
-    private func scanNode(_ url: URL) throws -> FileNode {
+    private func scanNode(_ url: URL, context: inout ScanContext) throws -> FileNode {
         try Task.checkCancellation()
+        context.report(url)
 
         let keys: Set<URLResourceKey> = [
             .isDirectoryKey,
@@ -52,7 +59,7 @@ struct FileSystemDiskScanner: DiskScanning {
             options: [.skipsPackageDescendants]
         )
         let children = childURLs.compactMap { childURL in
-            try? scanNode(childURL)
+            try? scanNode(childURL, context: &context)
         }.sorted { $0.allocatedSize > $1.allocatedSize }
 
         return FileNode(
@@ -65,5 +72,29 @@ struct FileSystemDiskScanner: DiskScanning {
             artifact: detector.detect(url: url, isDirectory: true),
             children: children
         )
+    }
+
+    private struct ScanContext {
+        let rootURL: URL
+        let onProgress: DiskScanProgressHandler
+        private(set) var itemsScanned = 0
+
+        mutating func report(_ currentURL: URL, force: Bool = false) {
+            if !force {
+                itemsScanned += 1
+            }
+
+            guard force || itemsScanned == 1 || itemsScanned.isMultiple(of: 100) else {
+                return
+            }
+
+            onProgress(
+                ScanProgress(
+                    rootURL: rootURL,
+                    currentURL: currentURL,
+                    itemsScanned: itemsScanned
+                )
+            )
+        }
     }
 }

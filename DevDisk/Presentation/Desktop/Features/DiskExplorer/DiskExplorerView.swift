@@ -48,8 +48,23 @@ struct DiskExplorerView: View {
                 systemImage: "externaldrive",
                 description: Text("DevDisk shows directory sizes and recognizes development artifacts.")
             )
-        case let .scanning(url):
-            ProgressView("Scanning \(url.lastPathComponent)…")
+        case let .scanning(progress):
+            VStack(spacing: 12) {
+                ProgressView()
+                    .controlSize(.large)
+                Text("Scanning \(progress.rootURL.lastPathComponent)…")
+                    .font(.headline)
+                Text(progress.currentURL.path(percentEncoded: false))
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+                Text("\(progress.itemsScanned.formatted()) items inspected")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(40)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case let .loaded(root):
             List([root], children: \.children) { node in
@@ -87,10 +102,17 @@ struct DiskExplorerView: View {
 }
 
 #Preview("Scanning") {
+    let root = URL(fileURLWithPath: "/Users/developer")
     DiskExplorerView(
         state: DiskExplorerViewState(
             scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
-            initialPhase: .scanning(URL(fileURLWithPath: "/Users/developer/Projects"))
+            initialPhase: .scanning(
+                ScanProgress(
+                    rootURL: root,
+                    currentURL: root.appending(path: "Projects/client-app/node_modules/@types/react"),
+                    itemsScanned: 18_642
+                )
+            )
         )
     )
 }

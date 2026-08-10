@@ -6,7 +6,7 @@ import Observation
 final class DiskExplorerViewState {
     enum Phase: Equatable {
         case idle
-        case scanning(URL)
+        case scanning(ScanProgress)
         case loaded(FileNode)
         case failed(String)
     }
@@ -20,9 +20,17 @@ final class DiskExplorerViewState {
     }
 
     func scan(_ url: URL) async {
-        phase = .scanning(url)
+        phase = .scanning(
+            ScanProgress(rootURL: url, currentURL: url, itemsScanned: 0)
+        )
         do {
-            phase = .loaded(try await scanDisk(url))
+            let root = try await scanDisk(url) { [weak self] progress in
+                Task { @MainActor [weak self] in
+                    guard case .scanning = self?.phase else { return }
+                    self?.phase = .scanning(progress)
+                }
+            }
+            phase = .loaded(root)
         } catch is CancellationError {
             phase = .idle
         } catch {

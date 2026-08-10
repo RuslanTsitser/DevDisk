@@ -3,8 +3,18 @@ import Foundation
 struct StubDiskScanner: DiskScanning {
     let result: FileNode
 
-    func scan(_ root: URL) async throws -> FileNode {
-        result
+    func scan(
+        _ root: URL,
+        onProgress: @escaping DiskScanProgressHandler
+    ) async throws -> FileNode {
+        onProgress(
+            ScanProgress(
+                rootURL: root,
+                currentURL: result.url,
+                itemsScanned: result.fileCount
+            )
+        )
+        return result
     }
 
     static let preview = StubDiskScanner(
@@ -41,4 +51,3 @@ struct StubDiskScanner: DiskScanning {
         )
     )
 }
-

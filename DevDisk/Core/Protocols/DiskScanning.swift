@@ -1,6 +1,8 @@
 import Foundation
 
 protocol DiskScanning: Sendable {
-    func scan(_ root: URL) async throws -> FileNode
+    func scan(
+        _ root: URL,
+        onProgress: @escaping DiskScanProgressHandler
+    ) async throws -> FileNode
 }
-
