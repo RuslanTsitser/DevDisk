@@ -22,7 +22,7 @@ struct DiskExplorerView: View {
             allowsMultipleSelection: false
         ) { result in
             guard case let .success(urls) = result, let url = urls.first else { return }
-            Task { await state.scan(url) }
+            state.startScan(url)
         }
     }
 
@@ -63,6 +63,10 @@ struct DiskExplorerView: View {
                 Text("\(progress.itemsScanned.formatted()) items inspected")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
+                Button("Cancel Scan", role: .cancel) {
+                    state.cancelScan()
+                }
+                .keyboardShortcut(.cancelAction)
             }
             .padding(40)
             .frame(maxWidth: .infinity, maxHeight: .infinity)

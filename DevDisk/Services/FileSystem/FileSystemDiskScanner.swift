@@ -18,7 +18,7 @@ struct FileSystemDiskScanner: DiskScanning {
             }
         }
 
-        return try await Task.detached(priority: .userInitiated) {
+        let worker = Task.detached(priority: .userInitiated) {
             var context = ScanContext(rootURL: root, onProgress: onProgress)
             let volumeValues = try? root.resourceValues(forKeys: [
                 .volumeTotalCapacityKey,
@@ -32,7 +32,13 @@ struct FileSystemDiskScanner: DiskScanning {
                 volumeTotalCapacity: volumeValues?.volumeTotalCapacity.map(Int64.init),
                 volumeAvailableCapacity: volumeValues?.volumeAvailableCapacity.map(Int64.init)
             )
-        }.value
+        }
+
+        return try await withTaskCancellationHandler {
+            try await worker.value
+        } onCancel: {
+            worker.cancel()
+        }
     }
 
     private func scanNode(_ url: URL, context: inout ScanContext) throws -> FileNode {

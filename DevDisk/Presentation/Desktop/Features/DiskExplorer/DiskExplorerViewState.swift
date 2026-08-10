@@ -13,13 +13,27 @@ final class DiskExplorerViewState {
 
     private(set) var phase: Phase
     private let scanDisk: ScanDiskUseCase
+    @ObservationIgnored private var scanTask: Task<Void, Never>?
 
     init(scanDisk: ScanDiskUseCase, initialPhase: Phase = .idle) {
         self.scanDisk = scanDisk
         phase = initialPhase
     }
 
-    func scan(_ url: URL) async {
+    func startScan(_ url: URL) {
+        scanTask?.cancel()
+        scanTask = Task { [weak self] in
+            await self?.scan(url)
+        }
+    }
+
+    func cancelScan() {
+        scanTask?.cancel()
+        scanTask = nil
+        phase = .idle
+    }
+
+    private func scan(_ url: URL) async {
         phase = .scanning(
             ScanProgress(rootURL: url, currentURL: url, itemsScanned: 0)
         )
@@ -36,5 +50,6 @@ final class DiskExplorerViewState {
         } catch {
             phase = .failed("The selected location could not be scanned: \(error.localizedDescription)")
         }
+        scanTask = nil
     }
 }
