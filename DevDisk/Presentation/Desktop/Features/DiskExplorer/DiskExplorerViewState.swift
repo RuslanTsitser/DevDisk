@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 
@@ -28,6 +29,7 @@ final class DiskExplorerViewState {
     private(set) var navigationPath: [URL] = []
     private(set) var refreshingURL: URL?
     private(set) var refreshError: String?
+    private(set) var itemPendingDeletion: BrowserItem?
 
     private let scanDisk: ScanDiskUseCase
     private let store: any DiskScanStoring
@@ -79,9 +81,16 @@ final class DiskExplorerViewState {
 
         let store = store
         Task { [weak self] in
-            let saved = try? await Task.detached(priority: .utility) {
-                try store.load()
-            }.value
+            let saved: SavedDiskScan?
+            do {
+                saved = try await Task.detached(priority: .utility) {
+                    try store.load()
+                }.value
+            } catch {
+                guard let self, case .idle = phase else { return }
+                phase = .failed("The saved scan could not be loaded: \(error.localizedDescription)")
+                return
+            }
             guard let self, let saved, case .idle = phase else { return }
             phase = .loaded(saved.result)
             scannedAt = saved.scannedAt
@@ -196,6 +205,54 @@ final class DiskExplorerViewState {
 
     func dismissRefreshError() {
         refreshError = nil
+    }
+
+    func revealInFinder(_ item: BrowserItem) {
+        NSWorkspace.shared.activateFileViewerSelecting([item.url])
+    }
+
+    func canDelete(_ item: BrowserItem) -> Bool {
+        guard case let .loaded(result) = phase else { return false }
+        return item.url != result.root.url && refreshingURL == nil
+    }
+
+    func requestDeletion(of item: BrowserItem) {
+        guard canDelete(item) else { return }
+        itemPendingDeletion = item
+    }
+
+    func cancelDeletion() {
+        itemPendingDeletion = nil
+    }
+
+    func moveToTrash(_ item: BrowserItem) {
+        guard itemPendingDeletion?.url == item.url, canDelete(item) else { return }
+        itemPendingDeletion = nil
+        refreshingURL = item.url
+
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try FileManager.default.trashItem(at: item.url, resultingItemURL: nil)
+                guard case let .loaded(result) = phase else { return }
+                let updated = DiskScanResult(
+                    root: result.root.removing(item.url),
+                    skippedItemCount: result.skippedItemCount,
+                    volumeTotalCapacity: result.volumeTotalCapacity,
+                    volumeAvailableCapacity: result.volumeAvailableCapacity
+                )
+                phase = .loaded(updated)
+                let savedAt = scannedAt ?? Date()
+                let store = store
+                try? await Task.detached(priority: .utility) {
+                    try store.save(updated, rootURL: updated.root.url, scannedAt: savedAt)
+                }.value
+                refreshingURL = nil
+            } catch {
+                refreshError = "Could not move \(item.name) to the Trash: \(error.localizedDescription)"
+                refreshingURL = nil
+            }
+        }
     }
 
     private func startScan(_ url: URL) {

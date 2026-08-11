@@ -28,4 +28,19 @@ struct FileNode: Codable, Identifiable, Hashable, Sendable {
             children: updatedChildren
         )
     }
+
+    func removing(_ target: URL) -> FileNode {
+        guard let children else { return self }
+        let updatedChildren = children
+            .filter { $0.url != target }
+            .map { $0.removing(target) }
+        return FileNode(
+            id: id,
+            url: url,
+            name: name,
+            allocatedSize: updatedChildren.reduce(0) { $0 + $1.allocatedSize },
+            fileCount: updatedChildren.reduce(0) { $0 + $1.fileCount },
+            children: updatedChildren
+        )
+    }
 }

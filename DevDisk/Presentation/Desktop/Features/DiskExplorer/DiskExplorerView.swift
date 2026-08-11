@@ -26,6 +26,23 @@ struct DiskExplorerView: View {
         } message: {
             Text(state.refreshError ?? "Unknown error")
         }
+        .confirmationDialog(
+            "Move to Trash?",
+            isPresented: Binding(
+                get: { state.itemPendingDeletion != nil },
+                set: { if !$0 { state.cancelDeletion() } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let item = state.itemPendingDeletion {
+                Button("Move to Trash", role: .destructive) {
+                    state.moveToTrash(item)
+                }
+            }
+            Button("Cancel", role: .cancel) { state.cancelDeletion() }
+        } message: {
+            Text("\(state.itemPendingDeletion?.name ?? "This item") will be moved to the Trash.")
+        }
     }
 
     private var toolbar: some View {
@@ -262,6 +279,17 @@ struct DiskExplorerView: View {
                     }
                 }
             }
+
+            Button("Reveal in Finder", systemImage: "folder") {
+                state.revealInFinder(item)
+            }
+            .labelStyle(.iconOnly)
+
+            Button("Move to Trash", systemImage: "trash", role: .destructive) {
+                state.requestDeletion(of: item)
+            }
+            .labelStyle(.iconOnly)
+            .disabled(!state.canDelete(item))
         }
         .padding(.vertical, 2)
     }
