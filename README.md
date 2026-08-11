@@ -6,7 +6,7 @@ DevDisk is a free, open-source developer storage analyzer for macOS. It scans on
 
 There is no paywall, StoreKit integration, telemetry or cloud upload. Every first-iteration feature is available to everyone under Apache-2.0.
 
-![DevDisk first launch](docs/images/devdisk-first-launch.png)
+![DevDisk first launch](fastlane/screenshots/en-US/devdisk-first-launch.png)
 
 ## What it does
 
@@ -49,6 +49,17 @@ xcodebuild -project DevDisk.xcodeproj -scheme DevDisk -destination 'platform=mac
 xcodebuild -project DevDisk.xcodeproj -scheme DevDisk -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO test
 ```
 
+Fastlane is installed through Bundler. From the repository root:
+
+```sh
+bundle install
+bundle exec fastlane lanes
+bundle exec fastlane mac validate_store_content
+bundle exec fastlane mac verify
+```
+
+Store metadata follows Fastlane's `fastlane/metadata` layout (`en-US` for localized fields) and screenshots live in `fastlane/screenshots/en-US`. Apple team and account values are optional environment variables documented in `fastlane/Appfile`; no credentials are committed.
+
 The Xcode project is generated from `project.yml`. Commit changes to both the YAML and generated project so CI can validate that they agree.
 
 ## Privacy and sandbox limitations
@@ -74,7 +85,7 @@ The scanner and analyzers work off the main actor. Scan events are delivered in 
 ## Support and release material
 
 - [Support](docs/support.md)
-- [App Store metadata](StoreMetadata/en-US)
+- [App Store metadata](fastlane/metadata/en-US)
 - [CI and unsigned archive validation](.github/workflows/ci.yml)
 - [GitHub Pages workflow](.github/workflows/pages.yml)
 

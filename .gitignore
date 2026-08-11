@@ -3,4 +3,11 @@ DerivedData/
 build/
 xcuserdata/
 *.xcuserstate
-
+vendor/bundle/
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/test_output/
+fastlane/keys/
+fastlane/api_key.json
+fastlane/service-account*.json
+*.p8

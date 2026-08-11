@@ -1,0 +1,50 @@
+default_platform(:mac)
+
+project_root = File.expand_path("..", __dir__)
+
+platform :mac do
+  desc "Generate the Xcode project and run the macOS test suite"
+  lane :verify do
+    Dir.chdir(project_root) do
+      sh("xcodegen generate")
+      sh(
+        "xcodebuild",
+        "-project", "DevDisk.xcodeproj",
+        "-scheme", "DevDisk",
+        "-destination", "platform=macOS",
+        "CODE_SIGNING_ALLOWED=NO",
+        "test"
+      )
+    end
+  end
+
+  desc "Validate the local Fastlane metadata and screenshot layout without a store API call"
+  lane :validate_store_content do
+    required_localized_files = %w[
+      name.txt
+      subtitle.txt
+      description.txt
+      keywords.txt
+      promotional_text.txt
+      privacy_url.txt
+      support_url.txt
+    ]
+    metadata_root = File.expand_path("metadata/en-US", __dir__)
+
+    missing = required_localized_files.reject do |name|
+      path = File.join(metadata_root, name)
+      File.file?(path) && !File.zero?(path)
+    end
+    required_shared_files = %w[copyright.txt primary_category.txt]
+    shared_metadata_root = File.expand_path("metadata", __dir__)
+    missing += required_shared_files.reject do |name|
+      path = File.join(shared_metadata_root, name)
+      File.file?(path) && !File.zero?(path)
+    end
+    UI.user_error!("Missing Fastlane metadata: #{missing.join(', ')}") unless missing.empty?
+
+    screenshots = Dir[File.expand_path("screenshots/en-US/*.{png,jpg,jpeg}", __dir__)].sort
+    UI.user_error!("Add at least one en-US screenshot") if screenshots.empty?
+    UI.success("Fastlane metadata and screenshots are present")
+  end
+end

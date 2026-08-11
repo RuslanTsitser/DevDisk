@@ -1,6 +1,6 @@
 name: DevDisk
 options:
-  bundleIdPrefix: com.devdisk
+  bundleIdPrefix: com.tsitser
   deploymentTarget:
     macOS: "14.0"
 settings:
@@ -17,7 +17,7 @@ targets:
       - sdk: libsqlite3.tbd
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.devdisk.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.tsitser.devdisk
         PRODUCT_NAME: DevDisk
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: DevDisk

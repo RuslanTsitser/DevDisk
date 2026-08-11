@@ -573,7 +573,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.devdisk.DevDiskTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tsitser.DevDiskTests;
 				SDKROOT = macosx;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DevDisk.app/Contents/MacOS/DevDisk";
 			};
@@ -645,7 +645,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.devdisk.DevDiskTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tsitser.DevDiskTests;
 				SDKROOT = macosx;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DevDisk.app/Contents/MacOS/DevDisk";
 			};
@@ -666,7 +666,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.devdisk.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tsitser.devdisk;
 				PRODUCT_NAME = DevDisk;
 				SDKROOT = macosx;
 			};
@@ -687,7 +687,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.devdisk.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tsitser.devdisk;
 				PRODUCT_NAME = DevDisk;
 				SDKROOT = macosx;
 			};

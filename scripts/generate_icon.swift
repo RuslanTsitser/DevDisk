@@ -1,33 +1,31 @@
 import AppKit
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 
 let output = URL(filePath: CommandLine.arguments.dropFirst().first ?? "DevDisk/Assets.xcassets/AppIcon.appiconset")
 let sizes = [16, 32, 64, 128, 256, 512, 1024]
 
 for size in sizes {
-    guard let bitmap = NSBitmapImageRep(
-        bitmapDataPlanes: nil,
-        pixelsWide: size,
-        pixelsHigh: size,
-        bitsPerSample: 8,
-        samplesPerPixel: 4,
-        hasAlpha: true,
-        isPlanar: false,
-        colorSpaceName: .deviceRGB,
+    guard let bitmapContext = CGContext(
+        data: nil,
+        width: size,
+        height: size,
+        bitsPerComponent: 8,
         bytesPerRow: size * 4,
-        bitsPerPixel: 32
-    ) else { fatalError("Could not create bitmap") }
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+    ) else { fatalError("Could not create bitmap context") }
 
-    bitmap.size = NSSize(width: size, height: size)
     NSGraphicsContext.saveGraphicsState()
-    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+    NSGraphicsContext.current = NSGraphicsContext(cgContext: bitmapContext, flipped: false)
     NSGraphicsContext.current?.imageInterpolation = .high
     let scale = CGFloat(size) / 1024
     func rect(_ x: CGFloat, _ y: CGFloat, _ width: CGFloat, _ height: CGFloat) -> NSRect {
         NSRect(x: x * scale, y: y * scale, width: width * scale, height: height * scale)
     }
 
-    let background = NSBezierPath(roundedRect: rect(42, 42, 940, 940), xRadius: 214 * scale, yRadius: 214 * scale)
+    let background = NSBezierPath(rect: rect(0, 0, 1024, 1024))
     NSGradient(colors: [
         NSColor(red: 0.035, green: 0.067, blue: 0.145, alpha: 1),
         NSColor(red: 0.055, green: 0.15, blue: 0.26, alpha: 1)
@@ -63,8 +61,14 @@ for size in sizes {
     code.stroke()
 
     NSGraphicsContext.restoreGraphicsState()
-    guard let data = bitmap.representation(using: .png, properties: [:]) else {
-        fatalError("Could not encode icon")
-    }
-    try data.write(to: output.appending(path: "icon_\(size).png"), options: .atomic)
+    guard let image = bitmapContext.makeImage() else { fatalError("Could not create icon image") }
+    let destinationURL = output.appending(path: "icon_\(size).png") as CFURL
+    guard let destination = CGImageDestinationCreateWithURL(
+        destinationURL,
+        UTType.png.identifier as CFString,
+        1,
+        nil
+    ) else { fatalError("Could not create PNG destination") }
+    CGImageDestinationAddImage(destination, image, nil)
+    guard CGImageDestinationFinalize(destination) else { fatalError("Could not encode icon") }
 }

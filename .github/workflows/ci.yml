@@ -9,6 +9,14 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - name: Validate Fastlane configuration and store content
+        run: |
+          bundle exec fastlane lanes
+          bundle exec fastlane mac validate_store_content
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Validate generated project
