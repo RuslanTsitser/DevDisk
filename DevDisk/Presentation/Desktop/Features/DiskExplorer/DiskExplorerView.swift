@@ -33,11 +33,15 @@ struct DiskExplorerView: View {
             Text("DevDisk")
                 .font(.headline)
             Spacer()
-            if state.currentRootURL != nil {
+            if isScanning {
+                Button("Stop Scan", systemImage: "stop.fill", role: .cancel) {
+                    state.stopScan()
+                }
+                .keyboardShortcut(.cancelAction)
+            } else if state.currentRootURL != nil {
                 Button("Scan Again", systemImage: "arrow.clockwise") {
                     state.rescanRoot()
                 }
-                .disabled(isScanning)
                 .keyboardShortcut("r")
             } else {
                 Button("Scan Disk", systemImage: "internaldrive") {
@@ -73,15 +77,23 @@ struct DiskExplorerView: View {
             }
         case let .scanning(progress):
             explorer(progress: progress, result: nil)
+        case let .stopped(progress):
+            explorer(progress: nil, result: nil, stoppedProgress: progress)
         case let .loaded(result):
             explorer(progress: nil, result: result)
         }
     }
 
-    private func explorer(progress: ScanProgress?, result: DiskScanResult?) -> some View {
+    private func explorer(
+        progress: ScanProgress?,
+        result: DiskScanResult?,
+        stoppedProgress: ScanProgress? = nil
+    ) -> some View {
         VStack(spacing: 0) {
             if let progress {
                 scanningHeader(progress)
+            } else if let stoppedProgress {
+                stoppedHeader(stoppedProgress)
             } else if let result {
                 resultHeader(result)
             }
@@ -92,13 +104,34 @@ struct DiskExplorerView: View {
         }
     }
 
+    private func stoppedHeader(_ progress: ScanProgress) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "stop.circle.fill")
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Scan stopped")
+                    .font(.headline)
+                Text("Completed folders remain available below.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text("\(progress.itemsScanned.formatted()) items")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
+        .padding(12)
+        .background(.bar)
+    }
+
     private func scanningHeader(_ progress: ScanProgress) -> some View {
         HStack(spacing: 12) {
             ProgressView().controlSize(.small)
             VStack(alignment: .leading, spacing: 3) {
                 Text("Scanning disk")
                     .font(.headline)
-                Text(progress.currentURL.path(percentEncoded: false))
+                Text(displayPath(progress.currentURL))
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -151,8 +184,8 @@ struct DiskExplorerView: View {
             Text(state.currentDirectoryName)
                 .font(.headline)
                 .lineLimit(1)
-            if let path = state.currentDirectoryURL?.path(percentEncoded: false) {
-                Text(path)
+            if let directoryURL = state.currentDirectoryURL {
+                Text(displayPath(directoryURL))
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -169,9 +202,15 @@ struct DiskExplorerView: View {
         let items = state.children()
         if items.isEmpty {
             ContentUnavailableView(
-                isScanning ? "Waiting for contents" : "This folder is empty",
-                systemImage: isScanning ? "folder.badge.clock" : "folder",
-                description: Text(isScanning ? "Ready folders will become available while the rest of the disk is scanned." : "No files or folders were found.")
+                isScanning ? "Waiting for contents" : isStopped ? "No completed contents" : "This folder is empty",
+                systemImage: isPartialScan ? "folder.badge.clock" : "folder",
+                description: Text(
+                    isScanning
+                        ? "Ready folders will become available while the rest of the disk is scanned."
+                        : isStopped
+                            ? "Only folders completed before the scan stopped are available."
+                            : "No files or folders were found."
+                )
             )
         } else {
             List(items) { item in
@@ -238,6 +277,8 @@ struct DiskExplorerView: View {
                 Text("Scanning")
             }
             .foregroundStyle(.blue)
+        case .cancelled:
+            Label("Stopped", systemImage: "stop.circle.fill").foregroundStyle(.orange)
         case .completed:
             Label("Ready", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
         case let .partial(skippedItemCount):
@@ -265,6 +306,27 @@ struct DiskExplorerView: View {
     private var isScanning: Bool {
         if case .scanning = state.phase { return true }
         return false
+    }
+
+    private var isPartialScan: Bool {
+        switch state.phase {
+        case .scanning, .stopped: true
+        default: false
+        }
+    }
+
+    private var isStopped: Bool {
+        if case .stopped = state.phase { return true }
+        return false
+    }
+
+    private func displayPath(_ url: URL) -> String {
+        let path = url.path(percentEncoded: false)
+        guard state.currentRootURL?.path == "/.nofollow", path.hasPrefix("/.nofollow") else {
+            return path
+        }
+        let visiblePath = String(path.dropFirst("/.nofollow".count))
+        return visiblePath.isEmpty ? "/" : visiblePath
     }
 
     private func canRefresh(_ item: DiskExplorerViewState.BrowserItem) -> Bool {

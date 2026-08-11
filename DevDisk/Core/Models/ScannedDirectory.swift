@@ -4,6 +4,7 @@ struct ScannedDirectory: Equatable, Identifiable, Sendable {
     enum Status: Equatable, Sendable {
         case waiting
         case scanning
+        case cancelled
         case completed
         case partial(skippedItemCount: Int)
         case skipped

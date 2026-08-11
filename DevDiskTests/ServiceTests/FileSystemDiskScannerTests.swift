@@ -4,6 +4,33 @@ import Testing
 
 struct FileSystemDiskScannerTests {
     @Test
+    func normalizesSecurityScopedRootPaths() {
+        #expect(FileSystemDiskScanner.logicalPath("/.nofollow") == "/")
+        #expect(FileSystemDiskScanner.logicalPath("/.nofollow/Users/me") == "/Users/me")
+        #expect(FileSystemDiskScanner.logicalPath("/Users/me") == "/Users/me")
+    }
+
+    @Test
+    func recognizesMountedSimulatorVolumeBehindSecurityScopedRoot() {
+        let mount = "/Library/Developer/CoreSimulator/Volumes/iOS_23F77"
+
+        #expect(
+            FileSystemDiskScanner.isMountedVolumeRoot(
+                itemPath: "/.nofollow\(mount)",
+                itemVolumePath: mount,
+                rootVolumePath: "/"
+            )
+        )
+        #expect(
+            !FileSystemDiskScanner.isMountedVolumeRoot(
+                itemPath: "/.nofollow/Users",
+                itemVolumePath: "/System/Volumes/Data",
+                rootVolumePath: "/"
+            )
+        )
+    }
+
+    @Test
     func countsHardLinkedFileOnlyOnce() async throws {
         let root = FileManager.default.temporaryDirectory
             .appending(path: UUID().uuidString, directoryHint: .isDirectory)

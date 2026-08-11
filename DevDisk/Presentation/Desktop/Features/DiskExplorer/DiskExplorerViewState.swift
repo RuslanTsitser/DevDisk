@@ -7,6 +7,7 @@ final class DiskExplorerViewState {
     enum Phase: Equatable {
         case idle
         case scanning(ScanProgress)
+        case stopped(ScanProgress)
         case loaded(DiskScanResult)
         case failed(String)
     }
@@ -33,9 +34,11 @@ final class DiskExplorerViewState {
     private let diskAccessRequester: any DiskAccessRequesting
     @ObservationIgnored private var scanTask: Task<Void, Never>?
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
+    @ObservationIgnored private var scanEventBuffer: ScanEventBuffer?
     @ObservationIgnored private var rootAccessURL: URL?
     @ObservationIgnored private var isRootAccessActive = false
     private var directoryUpdates: [URL: ScannedDirectory] = [:]
+    private var directoryChildren: [URL: Set<URL>] = [:]
     @ObservationIgnored private var didRestore = false
 
     init(
@@ -48,8 +51,12 @@ final class DiskExplorerViewState {
         self.scanDisk = scanDisk
         self.store = store
         self.diskAccessRequester = diskAccessRequester
-        directoryUpdates = Dictionary(uniqueKeysWithValues: initialDirectories.map { ($0.url, $0) })
         phase = initialPhase
+        directoryUpdates = Dictionary(uniqueKeysWithValues: initialDirectories.map { ($0.url, $0) })
+        for directory in initialDirectories {
+            directoryChildren[directory.url.deletingLastPathComponent(), default: []]
+                .insert(directory.url)
+        }
         if let root = Self.rootURL(in: initialPhase) {
             navigationPath = [root]
         }
@@ -61,6 +68,7 @@ final class DiskExplorerViewState {
 
     var currentDirectoryName: String {
         guard let url = currentDirectoryURL else { return "Disk" }
+        if url == currentRootURL, url.path == "/.nofollow" { return "Macintosh HD" }
         return url.lastPathComponent.isEmpty ? "Macintosh HD" : url.lastPathComponent
     }
 
@@ -69,14 +77,16 @@ final class DiskExplorerViewState {
         didRestore = true
         guard case .idle = phase else { return }
 
-        do {
-            guard let saved = try store.load() else { return }
+        let store = store
+        Task { [weak self] in
+            let saved = try? await Task.detached(priority: .utility) {
+                try store.load()
+            }.value
+            guard let self, let saved, case .idle = phase else { return }
             phase = .loaded(saved.result)
             scannedAt = saved.scannedAt
             navigationPath = [saved.result.root.url]
             activateAccess(to: saved.rootURL)
-        } catch {
-            // A missing or incompatible cache must never block a fresh scan.
         }
     }
 
@@ -89,6 +99,26 @@ final class DiskExplorerViewState {
     func rescanRoot() {
         guard let currentRootURL else { return }
         startScan(rootAccessURL ?? currentRootURL)
+    }
+
+    func stopScan() {
+        guard case let .scanning(progress) = phase else { return }
+        scanTask?.cancel()
+        scanTask = nil
+        scanEventBuffer?.finish()
+        scanEventBuffer = nil
+        let activeURLs = directoryUpdates.compactMap { url, directory in
+            directory.status == .scanning ? url : nil
+        }
+        for url in activeURLs {
+            guard let directory = directoryUpdates[url] else { continue }
+            directoryUpdates[url] = ScannedDirectory(
+                url: directory.url,
+                status: .cancelled,
+                node: directory.node
+            )
+        }
+        phase = .stopped(progress)
     }
 
     func open(_ item: BrowserItem) {
@@ -107,17 +137,17 @@ final class DiskExplorerViewState {
         switch phase {
         case let .loaded(result):
             return items(from: result.root.node(at: directoryURL)?.children ?? [])
-        case .scanning:
+        case .scanning, .stopped:
             var itemsByURL: [URL: BrowserItem] = [:]
             if let completedChildren = directoryUpdates[directoryURL]?.node?.children {
                 for item in items(from: completedChildren) {
                     itemsByURL[item.url] = item
                 }
             }
-            for update in directoryUpdates.values
-            where update.url != directoryURL
-                && update.url.deletingLastPathComponent().standardizedFileURL
-                    == directoryURL.standardizedFileURL {
+            for childURL in directoryChildren[directoryURL] ?? [] {
+                guard let update = directoryUpdates[childURL], update.url != directoryURL else {
+                    continue
+                }
                 itemsByURL[update.url] = BrowserItem(
                     url: update.url,
                     name: update.name,
@@ -149,7 +179,11 @@ final class DiskExplorerViewState {
                 let updated = result.replacing(replacement)
                 phase = .loaded(updated)
                 scannedAt = Date()
-                try store.save(updated, rootURL: updated.root.url, scannedAt: scannedAt ?? Date())
+                let savedAt = scannedAt ?? Date()
+                let store = store
+                try await Task.detached(priority: .utility) {
+                    try store.save(updated, rootURL: updated.root.url, scannedAt: savedAt)
+                }.value
             } catch is CancellationError {
                 return
             } catch {
@@ -166,10 +200,13 @@ final class DiskExplorerViewState {
 
     private func startScan(_ url: URL) {
         scanTask?.cancel()
+        scanEventBuffer?.finish()
+        scanEventBuffer = nil
         refreshTask?.cancel()
         refreshTask = nil
         refreshingURL = nil
         directoryUpdates = [:]
+        directoryChildren = [:]
         navigationPath = [url]
         phase = .scanning(ScanProgress(rootURL: url, currentURL: url, itemsScanned: 0))
         scanTask = Task { [weak self] in
@@ -186,28 +223,54 @@ final class DiskExplorerViewState {
     }
 
     private func scan(_ url: URL) async {
+        let eventBuffer = ScanEventBuffer { [weak self] progress, directories in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                switch phase {
+                case .scanning:
+                    if let progress { phase = .scanning(progress) }
+                    for directory in directories {
+                        recordDirectory(directory)
+                    }
+                case .stopped:
+                    for directory in directories {
+                        let stoppedDirectory = directory.status == .scanning
+                            ? ScannedDirectory(url: directory.url, status: .cancelled, node: directory.node)
+                            : directory
+                        recordDirectory(stoppedDirectory)
+                    }
+                default:
+                    return
+                }
+            }
+        }
+        scanEventBuffer = eventBuffer
+
         do {
             let result = try await scanDisk(
                 url,
-                onProgress: { [weak self] progress in
-                    Task { @MainActor [weak self] in
-                        guard case .scanning = self?.phase else { return }
-                        self?.phase = .scanning(progress)
-                    }
+                onProgress: { progress in
+                    eventBuffer.record(progress)
                 },
-                onDirectoryScanned: { [weak self] directory in
-                    Task { @MainActor [weak self] in
-                        guard case .scanning = self?.phase else { return }
-                        self?.directoryUpdates[directory.url] = directory
-                    }
+                onDirectoryScanned: { directory in
+                    eventBuffer.record(directory)
                 }
             )
+            eventBuffer.finish()
+            scanEventBuffer = nil
             phase = .loaded(result)
             scannedAt = Date()
-            try? store.save(result, rootURL: url, scannedAt: scannedAt ?? Date())
+            let savedAt = scannedAt ?? Date()
+            let store = store
+            try? await Task.detached(priority: .utility) {
+                try store.save(result, rootURL: url, scannedAt: savedAt)
+            }.value
         } catch is CancellationError {
+            eventBuffer.finish()
             return
         } catch {
+            eventBuffer.finish()
+            scanEventBuffer = nil
             phase = .failed("The disk could not be scanned: \(error.localizedDescription)")
         }
         scanTask = nil
@@ -226,6 +289,12 @@ final class DiskExplorerViewState {
         })
     }
 
+    private func recordDirectory(_ directory: ScannedDirectory) {
+        directoryUpdates[directory.url] = directory
+        directoryChildren[directory.url.deletingLastPathComponent(), default: []]
+            .insert(directory.url)
+    }
+
     private func sorted(_ items: [BrowserItem]) -> [BrowserItem] {
         items.sorted {
             if $0.isDirectory != $1.isDirectory { return $0.isDirectory }
@@ -239,8 +308,68 @@ final class DiskExplorerViewState {
     private static func rootURL(in phase: Phase) -> URL? {
         switch phase {
         case let .scanning(progress): progress.rootURL
+        case let .stopped(progress): progress.rootURL
         case let .loaded(result): result.root.url
         case .idle, .failed: nil
         }
+    }
+}
+
+private final class ScanEventBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    private let timer: DispatchSourceTimer
+    private let deliver: @Sendable (ScanProgress?, [ScannedDirectory]) -> Void
+    private var latestProgress: ScanProgress?
+    private var directories: [URL: ScannedDirectory] = [:]
+    private var isFinished = false
+
+    init(deliver: @escaping @Sendable (ScanProgress?, [ScannedDirectory]) -> Void) {
+        self.deliver = deliver
+        timer = DispatchSource.makeTimerSource(
+            queue: DispatchQueue(label: "com.devdisk.scan-events", qos: .utility)
+        )
+        timer.schedule(deadline: .now() + .milliseconds(150), repeating: .milliseconds(150))
+        timer.setEventHandler { [weak self] in self?.flush() }
+        timer.resume()
+    }
+
+    func record(_ progress: ScanProgress) {
+        lock.withLock {
+            guard !isFinished else { return }
+            latestProgress = progress
+        }
+    }
+
+    func record(_ directory: ScannedDirectory) {
+        lock.withLock {
+            guard !isFinished else { return }
+            directories[directory.url] = directory
+        }
+    }
+
+    func finish() {
+        let shouldFinish = lock.withLock { () -> Bool in
+            guard !isFinished else { return false }
+            isFinished = true
+            return true
+        }
+        guard shouldFinish else { return }
+        timer.cancel()
+        flush()
+    }
+
+    private func flush() {
+        let batch = lock.withLock { () -> (ScanProgress?, [ScannedDirectory]) in
+            let batch = (latestProgress, Array(directories.values))
+            latestProgress = nil
+            directories.removeAll(keepingCapacity: true)
+            return batch
+        }
+        guard batch.0 != nil || !batch.1.isEmpty else { return }
+        deliver(batch.0, batch.1)
+    }
+
+    deinit {
+        timer.cancel()
     }
 }

@@ -1,6 +1,16 @@
 import Foundation
 
 struct FileSystemDiskScanner: DiskScanning {
+    private static let resourceKeys: Set<URLResourceKey> = [
+        .isDirectoryKey,
+        .isSymbolicLinkKey,
+        .fileSizeKey,
+        .fileAllocatedSizeKey,
+        .fileResourceIdentifierKey,
+        .volumeIdentifierKey,
+        .volumeURLKey
+    ]
+
     func scan(
         _ root: URL,
         onProgress: @escaping DiskScanProgressHandler,
@@ -13,7 +23,7 @@ struct FileSystemDiskScanner: DiskScanning {
             }
         }
 
-        let worker = Task.detached(priority: .userInitiated) {
+        let worker = Task.detached(priority: .utility) {
             let rootVolumeURL = try? root.resourceValues(forKeys: [.volumeURLKey]).volume
             var context = ScanContext(
                 rootURL: root,
@@ -42,27 +52,18 @@ struct FileSystemDiskScanner: DiskScanning {
         }
     }
 
-    private func scanNode(_ url: URL, context: inout ScanContext) throws -> FileNode {
+    private func scanNode(
+        _ url: URL,
+        prefetchedValues: URLResourceValues? = nil,
+        context: inout ScanContext
+    ) throws -> FileNode {
         try Task.checkCancellation()
         context.report(url)
 
-        let keys: Set<URLResourceKey> = [
-            .isDirectoryKey,
-            .isSymbolicLinkKey,
-            .fileSizeKey,
-            .fileAllocatedSizeKey,
-            .fileResourceIdentifierKey,
-            .volumeIdentifierKey,
-            .volumeURLKey
-        ]
-        let values = try url.resourceValues(forKeys: keys)
+        let values = try prefetchedValues ?? url.resourceValues(forKeys: Self.resourceKeys)
         let isDirectory = values.isDirectory == true
         let isSymbolicLink = values.isSymbolicLink == true
         let isScannableDirectory = isDirectory && !isSymbolicLink
-
-        if isScannableDirectory {
-            context.reportDirectory(url, status: .scanning)
-        }
 
         if context.shouldExclude(url, values: values) {
             if isScannableDirectory { context.reportDirectory(url, status: .skipped) }
@@ -71,6 +72,10 @@ struct FileSystemDiskScanner: DiskScanning {
         if !isSymbolicLink, !context.registerIfNew(values) {
             if isScannableDirectory { context.reportDirectory(url, status: .skipped) }
             throw TraversalError.excluded
+        }
+
+        if isScannableDirectory {
+            context.reportDirectory(url, status: .scanning)
         }
 
         guard isDirectory, !isSymbolicLink else {
@@ -87,31 +92,39 @@ struct FileSystemDiskScanner: DiskScanning {
         let skippedBeforeScan = context.skippedItemCount
         let childURLs = try FileManager.default.contentsOfDirectory(
             at: url,
-            includingPropertiesForKeys: Array(keys),
+            includingPropertiesForKeys: Array(Self.resourceKeys),
             options: [.skipsPackageDescendants]
-        ).sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
-        for childURL in childURLs {
-            let childValues = try? childURL.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-            if childValues?.isDirectory == true, childValues?.isSymbolicLink != true {
-                context.reportDirectory(childURL, status: .waiting)
+        )
+        let childEntries = childURLs.map { childURL in
+            ChildEntry(
+                url: childURL,
+                values: try? childURL.resourceValues(forKeys: Self.resourceKeys)
+            )
+        }
+        for child in childEntries {
+            if child.values?.isDirectory == true, child.values?.isSymbolicLink != true {
+                context.reportDirectory(child.url, status: .waiting)
             }
         }
-        let children = try childURLs.compactMap { childURL in
+        let children = try childEntries.compactMap { child in
             do {
-                return try scanNode(childURL, context: &context)
+                return try scanNode(
+                    child.url,
+                    prefetchedValues: child.values,
+                    context: &context
+                )
             } catch let error as CancellationError {
                 throw error
             } catch TraversalError.excluded {
                 return nil
             } catch {
                 context.recordSkippedItem()
-                let childValues = try? childURL.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-                if childValues?.isDirectory == true, childValues?.isSymbolicLink != true {
-                    context.reportDirectory(childURL, status: .failed(error.localizedDescription))
+                if child.values?.isDirectory == true, child.values?.isSymbolicLink != true {
+                    context.reportDirectory(child.url, status: .failed(error.localizedDescription))
                 }
                 return nil
             }
-        }.sorted { $0.allocatedSize > $1.allocatedSize }
+        }
 
         let node = FileNode(
             id: url,
@@ -131,6 +144,29 @@ struct FileSystemDiskScanner: DiskScanning {
 
     private enum TraversalError: Error {
         case excluded
+    }
+
+    private struct ChildEntry {
+        let url: URL
+        let values: URLResourceValues?
+    }
+
+    static func logicalPath(_ path: String) -> String {
+        guard path == "/.nofollow" || path.hasPrefix("/.nofollow/") else { return path }
+        let logicalPath = String(path.dropFirst("/.nofollow".count))
+        return logicalPath.isEmpty ? "/" : logicalPath
+    }
+
+    static func isMountedVolumeRoot(
+        itemPath: String,
+        itemVolumePath: String,
+        rootVolumePath: String
+    ) -> Bool {
+        let logicalItemPath = logicalPath(itemPath)
+        let logicalItemVolumePath = logicalPath(itemVolumePath)
+        let logicalRootVolumePath = logicalPath(rootVolumePath)
+        return logicalItemVolumePath != logicalRootVolumePath
+            && logicalItemPath == logicalItemVolumePath
     }
 
     private struct ScanContext {
@@ -160,23 +196,31 @@ struct FileSystemDiskScanner: DiskScanning {
         func shouldExclude(_ url: URL, values: URLResourceValues) -> Bool {
             guard url != rootURL else { return false }
 
-            if rootURL.path == "/" {
-                if url.path == "/.nofollow" || url.path == "/System/Volumes/Data" {
+            let logicalRootPath = FileSystemDiskScanner.logicalPath(rootURL.path)
+            let logicalItemPath = FileSystemDiskScanner.logicalPath(url.path)
+            if logicalRootPath == "/" {
+                if logicalItemPath == "/.nofollow" || logicalItemPath == "/System/Volumes/Data" {
                     return true
                 }
             }
 
             guard let rootVolumeURL, let itemVolumeURL = values.volume else { return false }
-            let standardizedItemVolume = itemVolumeURL.standardizedFileURL
-            return standardizedItemVolume != rootVolumeURL.standardizedFileURL
-                && url.standardizedFileURL == standardizedItemVolume
+            return FileSystemDiskScanner.isMountedVolumeRoot(
+                itemPath: url.standardizedFileURL.path,
+                itemVolumePath: itemVolumeURL.standardizedFileURL.path,
+                rootVolumePath: rootVolumeURL.standardizedFileURL.path
+            )
         }
 
         mutating func registerIfNew(_ values: URLResourceValues) -> Bool {
-            guard let fileIdentifier = values.fileResourceIdentifier else { return true }
+            guard let rawFileIdentifier = values.fileResourceIdentifier,
+                  let fileIdentifier = rawFileIdentifier as? AnyHashable
+            else { return true }
+            let volumeIdentifier = (values.volumeIdentifier as? AnyHashable)
+                ?? AnyHashable("unknown-volume")
             let identity = FileIdentity(
-                volume: String(reflecting: values.volumeIdentifier),
-                file: String(reflecting: fileIdentifier)
+                volume: volumeIdentifier,
+                file: fileIdentifier
             )
             return visitedItems.insert(identity).inserted
         }
@@ -215,7 +259,7 @@ struct FileSystemDiskScanner: DiskScanning {
                 itemsScanned += 1
             }
 
-            guard force || itemsScanned == 1 || itemsScanned.isMultiple(of: 100) else {
+            guard force || itemsScanned == 1 || itemsScanned.isMultiple(of: 1_000) else {
                 return
             }
 
@@ -229,8 +273,8 @@ struct FileSystemDiskScanner: DiskScanning {
         }
     }
 
-    private struct FileIdentity: Hashable {
-        let volume: String
-        let file: String
+    private struct FileIdentity: Hashable, @unchecked Sendable {
+        let volume: AnyHashable
+        let file: AnyHashable
     }
 }
