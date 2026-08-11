@@ -1,0 +1,9 @@
+DevDisk is a private, local-first storage analyzer made for software developers.
+
+Explore the folders you choose as a sortable tree with allocated and logical size, file count, modification date and growth since the previous scan. Developer Insights recognizes build output, caches, dependencies, SDKs, simulators and tool-managed storage across Apple, Android, Flutter, Web, Node.js, Homebrew, Rust, C/C++, Python, JVM, Git and Docker workflows.
+
+Regular files are always read-only. DevDisk only offers Move to Trash for a strict allowlist of project-generated artifacts that can be rebuilt, and validates the project marker and artifact again immediately before cleanup.
+
+All processing stays on your Mac. DevDisk does not upload file names, analytics or scan results. Export a CSV report whenever you want to inspect or share the findings.
+
+DevDisk is free and open source under the Apache License 2.0.

@@ -1,0 +1,1 @@
+Find build output, caches, simulators, SDKs and dependencies that consume your Mac's storage.

@@ -2,7 +2,7 @@ import Foundation
 import SQLite3
 
 struct SQLiteDiskScanStore: DiskScanStoring {
-    private static let schemaVersion: Int32 = 1
+    private static let schemaVersion: Int32 = 2
     private static let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
     private let databaseURL: URL
@@ -71,6 +71,31 @@ struct SQLiteDiskScanStore: DiskScanStoring {
         try? FileManager.default.removeItem(at: legacyJSONURL)
     }
 
+    func recordSnapshot(_ result: DiskScanResult, scannedAt: Date) throws {
+        try FileManager.default.createDirectory(
+            at: databaseURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let database = try Database(url: databaseURL)
+        try database.prepareSchema()
+        let insights = DeveloperArtifactAnalyzer().analyze(result.root)
+        try database.recordSnapshot(result, insights: insights, scannedAt: scannedAt)
+    }
+
+    func loadPreviousDirectorySizes() throws -> [String: DirectorySizeSnapshot] {
+        guard FileManager.default.fileExists(atPath: databaseURL.path) else { return [:] }
+        let database = try Database(url: databaseURL)
+        try database.prepareSchema()
+        return try database.loadPreviousDirectorySizes()
+    }
+
+    func loadPreviousCategorySizes() throws -> [String: CategorySizeSnapshot] {
+        guard FileManager.default.fileExists(atPath: databaseURL.path) else { return [:] }
+        let database = try Database(url: databaseURL)
+        try database.prepareSchema()
+        return try database.loadPreviousCategorySizes()
+    }
+
     private func makeBookmark(for url: URL) throws -> Data {
         try url.bookmarkData(
             options: [.withSecurityScope],
@@ -115,10 +140,11 @@ private extension SQLiteDiskScanStore {
 
         func prepareSchema() throws {
             let version = try scalarInt("PRAGMA user_version")
-            guard version == 0 || version == SQLiteDiskScanStore.schemaVersion else {
+            guard (0...SQLiteDiskScanStore.schemaVersion).contains(version) else {
                 throw StoreError.unsupportedSchema(version)
             }
 
+            try execute("PRAGMA foreign_keys = ON")
             try execute("PRAGMA journal_mode = WAL")
             try execute("PRAGMA synchronous = NORMAL")
             try execute("""
@@ -138,13 +164,47 @@ private extension SQLiteDiskScanStore {
                     parent_id INTEGER,
                     url TEXT NOT NULL,
                     name TEXT NOT NULL,
+                    logical_size INTEGER NOT NULL DEFAULT 0,
                     allocated_size INTEGER NOT NULL,
                     file_count INTEGER NOT NULL,
+                    modified_at REAL,
+                    access_status TEXT NOT NULL DEFAULT 'readable',
                     is_directory INTEGER NOT NULL
                 )
                 """)
             try execute("CREATE INDEX IF NOT EXISTS file_nodes_parent ON file_nodes(parent_id)")
-            if version == 0 {
+            if version == 1 {
+                try execute("ALTER TABLE file_nodes ADD COLUMN logical_size INTEGER NOT NULL DEFAULT 0")
+                try execute("ALTER TABLE file_nodes ADD COLUMN modified_at REAL")
+                try execute("ALTER TABLE file_nodes ADD COLUMN access_status TEXT NOT NULL DEFAULT 'readable'")
+                try execute("UPDATE file_nodes SET logical_size = allocated_size")
+            }
+            try execute("""
+                CREATE TABLE IF NOT EXISTS scan_snapshots (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    scanned_at REAL NOT NULL
+                )
+                """)
+            try execute("""
+                CREATE TABLE IF NOT EXISTS directory_snapshots (
+                    snapshot_id INTEGER NOT NULL REFERENCES scan_snapshots(id) ON DELETE CASCADE,
+                    path TEXT NOT NULL,
+                    logical_size INTEGER NOT NULL,
+                    allocated_size INTEGER NOT NULL,
+                    PRIMARY KEY (snapshot_id, path)
+                )
+                """)
+            try execute("""
+                CREATE TABLE IF NOT EXISTS category_snapshots (
+                    snapshot_id INTEGER NOT NULL REFERENCES scan_snapshots(id) ON DELETE CASCADE,
+                    category_key TEXT NOT NULL,
+                    logical_size INTEGER NOT NULL,
+                    allocated_size INTEGER NOT NULL,
+                    artifact_count INTEGER NOT NULL,
+                    PRIMARY KEY (snapshot_id, category_key)
+                )
+                """)
+            if version < SQLiteDiskScanStore.schemaVersion {
                 try execute("PRAGMA user_version = \(SQLiteDiskScanStore.schemaVersion)")
             }
         }
@@ -192,7 +252,8 @@ private extension SQLiteDiskScanStore {
 
         func loadTree(rootID: Int64) throws -> FileNode {
             let statement = try prepare("""
-                SELECT id, parent_id, url, name, allocated_size, file_count, is_directory
+                SELECT id, parent_id, url, name, logical_size, allocated_size,
+                       file_count, modified_at, access_status, is_directory
                 FROM file_nodes ORDER BY id DESC
                 """)
             defer { sqlite3_finalize(statement) }
@@ -216,7 +277,7 @@ private extension SQLiteDiskScanStore {
                     throw StoreError.invalidNode(nodeID)
                 }
 
-                let isDirectory = sqlite3_column_int(statement, 6) != 0
+                let isDirectory = sqlite3_column_int(statement, 9) != 0
                 let children = isDirectory
                     ? Array((childrenByParent.removeValue(forKey: nodeID) ?? []).reversed())
                     : nil
@@ -224,8 +285,15 @@ private extension SQLiteDiskScanStore {
                     id: url,
                     url: url,
                     name: String(cString: nameText),
-                    allocatedSize: sqlite3_column_int64(statement, 4),
-                    fileCount: Int(sqlite3_column_int64(statement, 5)),
+                    logicalSize: sqlite3_column_int64(statement, 4),
+                    allocatedSize: sqlite3_column_int64(statement, 5),
+                    fileCount: Int(sqlite3_column_int64(statement, 6)),
+                    modifiedAt: sqlite3_column_type(statement, 7) == SQLITE_NULL
+                        ? nil
+                        : Date(timeIntervalSinceReferenceDate: sqlite3_column_double(statement, 7)),
+                    accessStatus: sqlite3_column_text(statement, 8).flatMap {
+                        FileAccessStatus(rawValue: String(cString: $0))
+                    } ?? .readable,
                     children: children
                 )
 
@@ -250,8 +318,9 @@ private extension SQLiteDiskScanStore {
         private func insertTree(_ root: FileNode) throws -> Int64 {
             let statement = try prepare("""
                 INSERT INTO file_nodes (
-                    parent_id, url, name, allocated_size, file_count, is_directory
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                    parent_id, url, name, logical_size, allocated_size, file_count,
+                    modified_at, access_status, is_directory
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)
             defer { sqlite3_finalize(statement) }
 
@@ -268,9 +337,16 @@ private extension SQLiteDiskScanStore {
                 }
                 bind(next.node.url.absoluteString, to: 2, in: statement)
                 bind(next.node.name, to: 3, in: statement)
-                sqlite3_bind_int64(statement, 4, next.node.allocatedSize)
-                sqlite3_bind_int64(statement, 5, Int64(next.node.fileCount))
-                sqlite3_bind_int(statement, 6, next.node.isDirectory ? 1 : 0)
+                sqlite3_bind_int64(statement, 4, next.node.logicalSize)
+                sqlite3_bind_int64(statement, 5, next.node.allocatedSize)
+                sqlite3_bind_int64(statement, 6, Int64(next.node.fileCount))
+                if let modifiedAt = next.node.modifiedAt {
+                    sqlite3_bind_double(statement, 7, modifiedAt.timeIntervalSinceReferenceDate)
+                } else {
+                    sqlite3_bind_null(statement, 7)
+                }
+                bind(next.node.accessStatus.rawValue, to: 8, in: statement)
+                sqlite3_bind_int(statement, 9, next.node.isDirectory ? 1 : 0)
                 try stepDone(statement)
 
                 let nodeID = sqlite3_last_insert_rowid(handle)
@@ -284,6 +360,139 @@ private extension SQLiteDiskScanStore {
 
             guard let rootID else { throw StoreError.emptyTree }
             return rootID
+        }
+
+        func recordSnapshot(
+            _ result: DiskScanResult,
+            insights: DeveloperInsights,
+            scannedAt: Date
+        ) throws {
+            try execute("BEGIN IMMEDIATE TRANSACTION")
+            do {
+                let snapshot = try prepare("INSERT INTO scan_snapshots (scanned_at) VALUES (?)")
+                defer { sqlite3_finalize(snapshot) }
+                sqlite3_bind_double(snapshot, 1, scannedAt.timeIntervalSinceReferenceDate)
+                try stepDone(snapshot)
+                let snapshotID = sqlite3_last_insert_rowid(handle)
+
+                let insert = try prepare("""
+                    INSERT INTO directory_snapshots (
+                        snapshot_id, path, logical_size, allocated_size
+                    ) VALUES (?, ?, ?, ?)
+                    """)
+                defer { sqlite3_finalize(insert) }
+                var pending = [result.root]
+                while let node = pending.popLast() {
+                    if node.isDirectory {
+                        sqlite3_reset(insert)
+                        sqlite3_clear_bindings(insert)
+                        sqlite3_bind_int64(insert, 1, snapshotID)
+                        bind(node.url.path(percentEncoded: false), to: 2, in: insert)
+                        sqlite3_bind_int64(insert, 3, node.logicalSize)
+                        sqlite3_bind_int64(insert, 4, node.allocatedSize)
+                        try stepDone(insert)
+                    }
+                    if let children = node.children { pending.append(contentsOf: children) }
+                }
+                let categoryInsert = try prepare("""
+                    INSERT INTO category_snapshots (
+                        snapshot_id, category_key, logical_size, allocated_size, artifact_count
+                    ) VALUES (?, ?, ?, ?, ?)
+                    """)
+                defer { sqlite3_finalize(categoryInsert) }
+                let accounting = insights.storageAccountingArtifacts
+                var categoryGroups: [String: [DeveloperArtifact]] = [:]
+                for artifact in accounting {
+                    categoryGroups["type:\(artifact.artifactKind)", default: []].append(artifact)
+                    for ecosystem in artifact.ecosystems {
+                        categoryGroups["ecosystem:\(ecosystem.rawValue)", default: []].append(artifact)
+                    }
+                }
+                for (key, artifacts) in categoryGroups {
+                    sqlite3_reset(categoryInsert)
+                    sqlite3_clear_bindings(categoryInsert)
+                    sqlite3_bind_int64(categoryInsert, 1, snapshotID)
+                    bind(key, to: 2, in: categoryInsert)
+                    sqlite3_bind_int64(categoryInsert, 3, artifacts.reduce(0) { $0 + $1.logicalSize })
+                    sqlite3_bind_int64(categoryInsert, 4, artifacts.reduce(0) { $0 + $1.allocatedSize })
+                    sqlite3_bind_int64(categoryInsert, 5, Int64(artifacts.count))
+                    try stepDone(categoryInsert)
+                }
+                try execute("""
+                    DELETE FROM scan_snapshots
+                    WHERE id NOT IN (
+                        SELECT id FROM scan_snapshots ORDER BY scanned_at DESC, id DESC LIMIT 10
+                    )
+                    """)
+                try execute("COMMIT")
+            } catch {
+                try? execute("ROLLBACK")
+                throw error
+            }
+        }
+
+        func loadPreviousDirectorySizes() throws -> [String: DirectorySizeSnapshot] {
+            guard let snapshotID = try previousSnapshotID() else { return [:] }
+
+            let statement = try prepare("""
+                SELECT path, logical_size, allocated_size
+                FROM directory_snapshots WHERE snapshot_id = ?
+                """)
+            defer { sqlite3_finalize(statement) }
+            sqlite3_bind_int64(statement, 1, snapshotID)
+            var values: [String: DirectorySizeSnapshot] = [:]
+            while true {
+                let result = sqlite3_step(statement)
+                if result == SQLITE_DONE { break }
+                guard result == SQLITE_ROW, let pathText = sqlite3_column_text(statement, 0) else {
+                    throw error(for: result)
+                }
+                let path = String(cString: pathText)
+                values[path] = DirectorySizeSnapshot(
+                    path: path,
+                    logicalSize: sqlite3_column_int64(statement, 1),
+                    allocatedSize: sqlite3_column_int64(statement, 2)
+                )
+            }
+            return values
+        }
+
+        func loadPreviousCategorySizes() throws -> [String: CategorySizeSnapshot] {
+            guard let snapshotID = try previousSnapshotID() else { return [:] }
+            let statement = try prepare("""
+                SELECT category_key, logical_size, allocated_size, artifact_count
+                FROM category_snapshots WHERE snapshot_id = ?
+                """)
+            defer { sqlite3_finalize(statement) }
+            sqlite3_bind_int64(statement, 1, snapshotID)
+            var values: [String: CategorySizeSnapshot] = [:]
+            while true {
+                let result = sqlite3_step(statement)
+                if result == SQLITE_DONE { break }
+                guard result == SQLITE_ROW, let keyText = sqlite3_column_text(statement, 0) else {
+                    throw error(for: result)
+                }
+                let key = String(cString: keyText)
+                values[key] = CategorySizeSnapshot(
+                    key: key,
+                    logicalSize: sqlite3_column_int64(statement, 1),
+                    allocatedSize: sqlite3_column_int64(statement, 2),
+                    artifactCount: Int(sqlite3_column_int64(statement, 3))
+                )
+            }
+            return values
+        }
+
+        private func previousSnapshotID() throws -> Int64? {
+            let snapshot = try prepare("""
+                SELECT id FROM scan_snapshots
+                ORDER BY scanned_at DESC, id DESC LIMIT 1 OFFSET 1
+                """)
+            defer { sqlite3_finalize(snapshot) }
+            let result = sqlite3_step(snapshot)
+            if result == SQLITE_DONE { return nil }
+            guard result == SQLITE_ROW else { throw error(for: result) }
+            return sqlite3_column_int64(snapshot, 0)
         }
 
         private func insertMetadata(

@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Validate generated project
+        run: |
+          xcodegen generate
+          git diff --exit-code -- DevDisk.xcodeproj
+      - name: Debug build
+        run: xcodebuild -project DevDisk.xcodeproj -scheme DevDisk -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
+      - name: Tests
+        run: xcodebuild -project DevDisk.xcodeproj -scheme DevDisk -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO test
+      - name: Unsigned release archive validation
+        run: xcodebuild -project DevDisk.xcodeproj -scheme DevDisk -configuration Release -destination 'generic/platform=macOS' -archivePath "$RUNNER_TEMP/DevDisk.xcarchive" CODE_SIGNING_ALLOWED=NO archive

@@ -6,6 +6,7 @@ struct FileSystemDiskScanner: DiskScanning {
         .isSymbolicLinkKey,
         .fileSizeKey,
         .fileAllocatedSizeKey,
+        .contentModificationDateKey,
         .fileResourceIdentifierKey,
         .volumeIdentifierKey,
         .volumeURLKey
@@ -83,8 +84,10 @@ struct FileSystemDiskScanner: DiskScanning {
                 id: url,
                 url: url,
                 name: url.lastPathComponent,
+                logicalSize: context.validatedSize(values.fileSize ?? 0),
                 allocatedSize: context.validatedSize(values.fileAllocatedSize ?? values.fileSize ?? 0),
                 fileCount: 1,
+                modifiedAt: values.contentModificationDate,
                 children: nil
             )
         }
@@ -96,13 +99,21 @@ struct FileSystemDiskScanner: DiskScanning {
             options: [.skipsPackageDescendants]
         )
         let childEntries = childURLs.map { childURL in
-            ChildEntry(
+            let values = try? childURL.resourceValues(forKeys: Self.resourceKeys)
+            var fallbackIsDirectory: ObjCBool = false
+            _ = FileManager.default.fileExists(
+                atPath: childURL.path,
+                isDirectory: &fallbackIsDirectory
+            )
+            return ChildEntry(
                 url: childURL,
-                values: try? childURL.resourceValues(forKeys: Self.resourceKeys)
+                values: values,
+                isDirectory: values?.isDirectory ?? fallbackIsDirectory.boolValue,
+                isSymbolicLink: values?.isSymbolicLink ?? false
             )
         }
         for child in childEntries {
-            if child.values?.isDirectory == true, child.values?.isSymbolicLink != true {
+            if child.isDirectory, !child.isSymbolicLink {
                 context.reportDirectory(child.url, status: .waiting)
             }
         }
@@ -119,22 +130,36 @@ struct FileSystemDiskScanner: DiskScanning {
                 return nil
             } catch {
                 context.recordSkippedItem()
-                if child.values?.isDirectory == true, child.values?.isSymbolicLink != true {
+                if child.isDirectory, !child.isSymbolicLink {
                     context.reportDirectory(child.url, status: .failed(error.localizedDescription))
+                    return FileNode(
+                        id: child.url,
+                        url: child.url,
+                        name: child.url.lastPathComponent,
+                        logicalSize: 0,
+                        allocatedSize: 0,
+                        fileCount: 0,
+                        modifiedAt: child.values?.contentModificationDate,
+                        accessStatus: .inaccessible,
+                        children: []
+                    )
                 }
                 return nil
             }
         }
 
+        let skippedInDirectory = context.skippedItemCount - skippedBeforeScan
         let node = FileNode(
             id: url,
             url: url,
             name: url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent,
+            logicalSize: children.reduce(0) { context.adding($0, $1.logicalSize) },
             allocatedSize: children.reduce(0) { context.adding($0, $1.allocatedSize) },
             fileCount: children.reduce(0) { $0 + $1.fileCount },
+            modifiedAt: values.contentModificationDate,
+            accessStatus: skippedInDirectory == 0 ? .readable : .partial,
             children: children
         )
-        let skippedInDirectory = context.skippedItemCount - skippedBeforeScan
         let status: ScannedDirectory.Status = skippedInDirectory == 0
             ? .completed
             : .partial(skippedItemCount: skippedInDirectory)
@@ -149,6 +174,8 @@ struct FileSystemDiskScanner: DiskScanning {
     private struct ChildEntry {
         let url: URL
         let values: URLResourceValues?
+        let isDirectory: Bool
+        let isSymbolicLink: Bool
     }
 
     static func logicalPath(_ path: String) -> String {
