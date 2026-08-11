@@ -3,6 +3,21 @@ import XCTest
 @testable import DevDisk
 
 final class DeveloperArtifactAnalyzerTests: XCTestCase {
+    func testProjectDiscoveryDoesNotTreatInstalledDependenciesAsProjects() {
+        let root = folder("/tmp/web-app", children: [
+            file("/tmp/web-app/package.json"),
+            folder("/tmp/web-app/node_modules", children: [
+                folder("/tmp/web-app/node_modules/dependency", children: [
+                    file("/tmp/web-app/node_modules/dependency/package.json")
+                ])
+            ])
+        ])
+
+        let projects = ProjectDiscoveryService().discoverProjects(in: root)
+
+        XCTAssertEqual(projects.map(\.rootURL.path), ["/tmp/web-app"])
+    }
+
     func testPlainBuildDirectoryIsNotAnArtifact() {
         let root = folder("/tmp/plain", children: [folder("/tmp/plain/build", size: 20)])
 

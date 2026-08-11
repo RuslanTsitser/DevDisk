@@ -36,25 +36,27 @@ struct SystemArtifactDetector: Sendable {
     ]
 
     func detect(nodes: [FileNode]) -> [DeveloperArtifact] {
-        nodes.compactMap { node in
-            guard node.isDirectory else { return nil }
-            let path = node.url.path(percentEncoded: false)
-            guard let definition = definitions.first(where: { path.hasSuffix($0.suffix) }) else {
-                return nil
-            }
-            return DeveloperArtifact(
-                id: node.url,
-                url: node.url,
-                project: nil,
-                ecosystems: definition.ecosystems,
-                logicalSize: node.logicalSize,
-                allocatedSize: node.allocatedSize,
-                artifactKind: definition.kind,
-                risk: definition.risk,
-                cleanupPolicy: definition.cleanup,
-                explanation: definition.explanation,
-                validationMarkerURLs: []
-            )
+        nodes.compactMap(detect(node:))
+    }
+
+    func detect(node: FileNode) -> DeveloperArtifact? {
+        guard node.isDirectory else { return nil }
+        let path = node.url.path(percentEncoded: false)
+        guard let definition = definitions.first(where: { path.hasSuffix($0.suffix) }) else {
+            return nil
         }
+        return DeveloperArtifact(
+            id: node.url,
+            url: node.url,
+            project: nil,
+            ecosystems: definition.ecosystems,
+            logicalSize: node.logicalSize,
+            allocatedSize: node.allocatedSize,
+            artifactKind: definition.kind,
+            risk: definition.risk,
+            cleanupPolicy: definition.cleanup,
+            explanation: definition.explanation,
+            validationMarkerURLs: []
+        )
     }
 }

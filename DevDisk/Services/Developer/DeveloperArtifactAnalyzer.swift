@@ -1,6 +1,12 @@
 import Foundation
 
 struct DeveloperArtifactAnalyzer: ArtifactDetecting {
+    private struct ProjectContext {
+        let project: DeveloperProject
+        let path: String
+        let rules: [DetectorRule]
+    }
+
     private let projectDiscovery: any ProjectDiscovering
     private let projectRules: [DetectorRule]
     private let systemDetector: SystemArtifactDetector
@@ -17,30 +23,56 @@ struct DeveloperArtifactAnalyzer: ArtifactDetecting {
 
     func analyze(_ root: FileNode) -> DeveloperInsights {
         let projects = projectDiscovery.discoverProjects(in: root)
-        let nodes = flatten(root)
+        let projectContexts = projects.map { project in
+            let markerNames = Set(project.markerURLs.map(\.lastPathComponent))
+            let rules = projectRules.filter { rule in
+                rule.scope == .project
+                    && !project.ecosystems.isDisjoint(with: rule.ecosystems)
+                    && (rule.projectMarkers.isEmpty || !markerNames.isDisjoint(with: rule.projectMarkers))
+            }
+            return ProjectContext(
+                project: project,
+                path: normalized(project.rootURL.path),
+                rules: rules
+            )
+        }
+        let projectsByRoot = Dictionary(grouping: projectContexts, by: \.path)
         var artifactsByURL: [URL: DeveloperArtifact] = [:]
+        var pending: [(node: FileNode, projects: [ProjectContext])] = [(root, [])]
 
-        for project in projects {
-            let projectPath = normalized(project.rootURL.path)
-            for node in nodes where node.isDirectory
-                && normalized(node.url.path).hasPrefix(projectPath + "/") {
-                let relative = String(normalized(node.url.path).dropFirst(projectPath.count + 1))
-                for rule in projectRules where rule.scope == .project {
-                    guard !project.ecosystems.isDisjoint(with: rule.ecosystems),
-                          matches(relative, suffixes: rule.pathSuffixes),
-                          rule.projectMarkers.isEmpty || !Set(project.markerURLs.map(\.lastPathComponent)).isDisjoint(with: rule.projectMarkers),
-                          rule.id != "cmake-build" || isConfirmedCMakeBuild(node)
-                    else { continue }
-                    merge(
-                        artifact(for: node, project: project, rule: rule),
-                        into: &artifactsByURL
-                    )
+        while let entry = pending.popLast() {
+            let node = entry.node
+            let nodePath = normalized(node.url.path)
+            var activeProjects = entry.projects
+            if let contextsAtNode = projectsByRoot[nodePath] {
+                activeProjects.append(contentsOf: contextsAtNode)
+            }
+
+            if node.isDirectory {
+                for context in activeProjects where nodePath != context.path {
+                    guard nodePath.hasPrefix(context.path + "/") else { continue }
+                    let relative = String(nodePath.dropFirst(context.path.count + 1))
+                    for rule in context.rules {
+                        guard matches(relative, suffixes: rule.pathSuffixes),
+                              rule.id != "cmake-build" || isConfirmedCMakeBuild(node)
+                        else { continue }
+                        merge(
+                            artifact(for: node, project: context.project, rule: rule),
+                            into: &artifactsByURL
+                        )
+                    }
+                }
+
+                if let artifact = systemDetector.detect(node: node) {
+                    merge(artifact, into: &artifactsByURL)
                 }
             }
-        }
 
-        for artifact in systemDetector.detect(nodes: nodes) {
-            merge(artifact, into: &artifactsByURL)
+            if let children = node.children {
+                for child in children.reversed() {
+                    pending.append((child, activeProjects))
+                }
+            }
         }
 
         return DeveloperInsights(
@@ -110,16 +142,6 @@ struct DeveloperArtifactAnalyzer: ArtifactDetecting {
         case .redownloadable: 2
         case .rebuildable: 1
         }
-    }
-
-    private func flatten(_ root: FileNode) -> [FileNode] {
-        var result: [FileNode] = []
-        var pending = [root]
-        while let node = pending.popLast() {
-            result.append(node)
-            if let children = node.children { pending.append(contentsOf: children) }
-        }
-        return result
     }
 
     private func matches(_ path: String, suffixes: Set<String>) -> Bool {

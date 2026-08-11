@@ -9,6 +9,7 @@ struct FileOutlineView: NSViewRepresentable {
     let ecosystemFilter: DeveloperEcosystem?
     let riskFilter: ArtifactRisk?
     let artifactKindFilter: String?
+    let directoryStatuses: [URL: ScannedDirectory.Status]
     @Binding var selectedURL: URL?
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
@@ -135,7 +136,7 @@ struct FileOutlineView: NSViewRepresentable {
             let node = item.node
             switch identifier.rawValue {
             case "name":
-                cell.imageView?.image = NSWorkspace.shared.icon(forFile: node.url.path)
+                cell.imageView?.image = statusIcon(for: node)
                 cell.imageView?.imageScaling = .scaleProportionallyDown
                 cell.textField?.stringValue = node.name
                 if let artifact = parent.artifacts[node.url] {
@@ -144,6 +145,9 @@ struct FileOutlineView: NSViewRepresentable {
                 } else if node.accessStatus == .inaccessible {
                     cell.textField?.toolTip = "This directory could not be read."
                     cell.textField?.textColor = .systemOrange
+                } else if let status = parent.directoryStatuses[node.url] {
+                    cell.textField?.toolTip = status.description
+                    cell.textField?.textColor = status.textColor
                 } else {
                     cell.textField?.toolTip = node.url.path
                     cell.textField?.textColor = .labelColor
@@ -226,6 +230,50 @@ struct FileOutlineView: NSViewRepresentable {
             }
             return nil
         }
+
+        private func statusIcon(for node: FileNode) -> NSImage {
+            guard let status = parent.directoryStatuses[node.url],
+                  let symbolName = status.symbolName,
+                  let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: status.description)
+            else {
+                return NSWorkspace.shared.icon(forFile: node.url.path)
+            }
+            return image
+        }
+    }
+}
+
+private extension ScannedDirectory.Status {
+    var description: String {
+        switch self {
+        case .waiting: "Waiting to be scanned"
+        case .scanning: "Scanning"
+        case .cancelled: "Scan cancelled"
+        case .completed: "Completed"
+        case let .partial(skippedItemCount): "Partially scanned · \(skippedItemCount) unreadable"
+        case .skipped: "Skipped"
+        case let .failed(message): "Unavailable · \(message)"
+        }
+    }
+
+    var symbolName: String? {
+        switch self {
+        case .waiting: "folder.badge.clock"
+        case .scanning: "arrow.trianglehead.2.clockwise.rotate.90"
+        case .cancelled: "stop.circle"
+        case .partial, .failed: "exclamationmark.triangle"
+        case .skipped: "minus.circle"
+        case .completed: nil
+        }
+    }
+
+    var textColor: NSColor {
+        switch self {
+        case .scanning: .controlAccentColor
+        case .cancelled, .partial, .failed, .skipped: .systemOrange
+        case .waiting: .secondaryLabelColor
+        case .completed: .labelColor
+        }
     }
 }
 
@@ -238,6 +286,13 @@ struct OutlineBuildConfiguration: Sendable {
     let artifactKindFilter: String?
     let sortKey: String
     let sortAscending: Bool
+
+    var hasActiveFilters: Bool {
+        !searchQuery.isEmpty
+            || ecosystemFilter != nil
+            || riskFilter != nil
+            || artifactKindFilter != nil
+    }
 }
 
 enum OutlineTreeBuilder {
@@ -246,6 +301,13 @@ enum OutlineTreeBuilder {
         configuration: OutlineBuildConfiguration
     ) -> OutlineItem? {
         guard !Task.isCancelled else { return nil }
+        if !configuration.hasActiveFilters {
+            return OutlineItem(
+                node: node,
+                children: makeDirectChildren(node, configuration: configuration),
+                configuration: configuration
+            )
+        }
         let children = (node.children ?? [])
             .compactMap { makeItem($0, configuration: configuration) }
             .sorted { orderedBefore($0, $1, configuration: configuration) }
@@ -266,10 +328,19 @@ enum OutlineTreeBuilder {
         guard (matchesSearch && matchesEcosystem && matchesRisk && matchesKind) || !children.isEmpty else {
             return nil
         }
-        return OutlineItem(node: node, children: children)
+        return OutlineItem(node: node, children: children, configuration: configuration)
     }
 
-    private static func orderedBefore(
+    fileprivate static func makeDirectChildren(
+        _ node: FileNode,
+        configuration: OutlineBuildConfiguration
+    ) -> [OutlineItem] {
+        (node.children ?? [])
+            .map { OutlineItem(node: $0, configuration: configuration) }
+            .sorted { orderedBefore($0, $1, configuration: configuration) }
+    }
+
+    fileprivate static func orderedBefore(
         _ lhs: OutlineItem,
         _ rhs: OutlineItem,
         configuration: OutlineBuildConfiguration
@@ -312,9 +383,23 @@ enum OutlineTreeBuilder {
 
 final class OutlineItem: NSObject, @unchecked Sendable {
     let node: FileNode
-    let children: [OutlineItem]
-    init(node: FileNode, children: [OutlineItem]) {
+    private let configuration: OutlineBuildConfiguration
+    private var cachedChildren: [OutlineItem]?
+
+    var children: [OutlineItem] {
+        if let cachedChildren { return cachedChildren }
+        let value = OutlineTreeBuilder.makeDirectChildren(node, configuration: configuration)
+        cachedChildren = value
+        return value
+    }
+
+    init(
+        node: FileNode,
+        children: [OutlineItem]? = nil,
+        configuration: OutlineBuildConfiguration
+    ) {
         self.node = node
-        self.children = children
+        self.configuration = configuration
+        cachedChildren = children
     }
 }

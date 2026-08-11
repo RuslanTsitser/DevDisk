@@ -36,6 +36,7 @@ final class DiskExplorerViewState {
     private(set) var refreshError: String?
     private(set) var artifactPendingDeletion: DeveloperArtifact?
     private(set) var insights: DeveloperInsights = .empty
+    private(set) var isAnalyzing = false
     private(set) var previousDirectorySizes: [String: DirectorySizeSnapshot] = [:]
     private(set) var previousCategorySizes: [String: CategorySizeSnapshot] = [:]
     private(set) var selectedURL: URL?
@@ -76,7 +77,7 @@ final class DiskExplorerViewState {
         phase = initialPhase
         directoryUpdates = Dictionary(uniqueKeysWithValues: initialDirectories.map { ($0.url, $0) })
         for directory in initialDirectories {
-            directoryChildren[directory.url.deletingLastPathComponent(), default: []]
+            directoryChildren[Self.directoryKey(directory.url.deletingLastPathComponent()), default: []]
                 .insert(directory.url)
         }
         if let root = Self.rootURL(in: initialPhase) {
@@ -180,7 +181,7 @@ final class DiskExplorerViewState {
                     itemsByURL[item.url] = item
                 }
             }
-            for childURL in directoryChildren[directoryURL] ?? [] {
+            for childURL in directoryChildren[Self.directoryKey(directoryURL)] ?? [] {
                 guard let update = directoryUpdates[childURL], update.url != directoryURL else {
                     continue
                 }
@@ -256,7 +257,19 @@ final class DiskExplorerViewState {
     var outlineRoot: FileNode? {
         if let currentResult { return currentResult.root }
         guard let rootURL = currentRootURL else { return nil }
-        let nodes = children().compactMap(\.node)
+        let nodes = children().map { item in
+            item.node ?? FileNode(
+                id: item.url,
+                url: item.url,
+                name: item.name,
+                logicalSize: item.logicalSize ?? 0,
+                allocatedSize: item.allocatedSize ?? 0,
+                fileCount: item.fileCount ?? 0,
+                modifiedAt: item.modifiedAt,
+                accessStatus: item.accessStatus,
+                children: item.isDirectory ? [] : nil
+            )
+        }
         return FileNode(
             id: rootURL,
             url: rootURL,
@@ -266,6 +279,15 @@ final class DiskExplorerViewState {
             fileCount: nodes.reduce(0) { $0 + $1.fileCount },
             children: nodes
         )
+    }
+
+    var visibleDirectoryStatuses: [URL: ScannedDirectory.Status] {
+        switch phase {
+        case .scanning, .stopped:
+            return directoryUpdates.mapValues(\.status)
+        case .idle, .restoring, .loaded, .failed:
+            return [:]
+        }
     }
 
     var selectedNode: FileNode? {
@@ -371,6 +393,8 @@ final class DiskExplorerViewState {
         refreshTask?.cancel()
         refreshTask = nil
         refreshingURL = nil
+        insights = .empty
+        isAnalyzing = false
         directoryUpdates = [:]
         directoryChildren = [:]
         navigationPath = [url]
@@ -464,8 +488,12 @@ final class DiskExplorerViewState {
 
     private func recordDirectory(_ directory: ScannedDirectory) {
         directoryUpdates[directory.url] = directory
-        directoryChildren[directory.url.deletingLastPathComponent(), default: []]
+        directoryChildren[Self.directoryKey(directory.url.deletingLastPathComponent()), default: []]
             .insert(directory.url)
+    }
+
+    private static func directoryKey(_ url: URL) -> URL {
+        URL(fileURLWithPath: url.standardizedFileURL.path, isDirectory: true)
     }
 
     private func sorted(_ items: [BrowserItem]) -> [BrowserItem] {
@@ -491,12 +519,14 @@ final class DiskExplorerViewState {
         let analyzer = artifactAnalyzer
         let generation = UUID()
         analysisGeneration = generation
+        isAnalyzing = true
         Task { [weak self] in
             let value = await Task.detached(priority: .utility) {
                 analyzer.analyze(result.root)
             }.value
             guard let self, analysisGeneration == generation else { return }
             insights = value
+            isAnalyzing = false
         }
     }
 

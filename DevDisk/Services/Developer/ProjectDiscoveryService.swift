@@ -1,6 +1,12 @@
 import Foundation
 
 struct ProjectDiscoveryService: ProjectDiscovering {
+    private static let generatedOrDependencyDirectories: Set<String> = [
+        ".build", ".cache", ".cargo", ".conan", ".dart_tool", ".git", ".gradle", ".npm",
+        ".pub-cache", "build", "Cache", "Caches", "CMakeFiles", "CoreSimulator", "DerivedData",
+        "node_modules", "Pods", "target"
+    ]
+
     private static let markerEcosystems: [String: Set<DeveloperEcosystem>] = [
         "pubspec.yaml": [.flutter],
         "package.json": [.web, .node],
@@ -31,7 +37,10 @@ struct ProjectDiscoveryService: ProjectDiscovering {
                 byRoot[projectRoot, default: ([], [])].ecosystems.insert(.apple)
                 byRoot[projectRoot, default: ([], [])].markers.insert(node.url)
             }
-            if let children = node.children { pending.append(contentsOf: children) }
+            if let children = node.children,
+               !Self.generatedOrDependencyDirectories.contains(node.name) {
+                pending.append(contentsOf: children)
+            }
         }
 
         return byRoot.map { rootURL, value in

@@ -159,6 +159,7 @@ struct DiskExplorerView: View {
                         ecosystemFilter: state.ecosystemFilter,
                         riskFilter: state.riskFilter,
                         artifactKindFilter: state.artifactKindFilter,
+                        directoryStatuses: state.visibleDirectoryStatuses,
                         selectedURL: Binding(
                             get: { state.selectedURL },
                             set: { value in state.select(value) }
@@ -367,7 +368,17 @@ struct DiskExplorerView: View {
         HStack(spacing: 24) {
             metricHeader("Scanned", result.displayedSize)
             if let used = result.volumeUsedCapacity { metricHeader("Used on volume", used) }
-            metricHeader("Developer storage", state.insights.allocatedSize)
+            if state.isAnalyzing {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Developer storage").font(.caption).foregroundStyle(.secondary)
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.small)
+                        Text("Analyzing…").font(.headline)
+                    }
+                }
+            } else {
+                metricHeader("Developer storage", state.insights.allocatedSize)
+            }
             Spacer()
             if result.skippedItemCount > 0 {
                 Label("\(result.skippedItemCount.formatted()) unreadable", systemImage: "exclamationmark.shield")
