@@ -82,60 +82,9 @@ struct DiskExplorerView: View {
                 description: Text("DevDisk shows directory sizes and recognizes development artifacts.")
             )
         case let .scanning(progress):
-            VStack(spacing: 0) {
-                VStack(spacing: 10) {
-                    HStack(spacing: 10) {
-                        ProgressView().controlSize(.small)
-                        Text("Scanning \(progress.rootURL.lastPathComponent)…")
-                            .font(.headline)
-                    }
-                    Text(progress.currentURL.path(percentEncoded: false))
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2, reservesSpace: true)
-                        .truncationMode(.middle)
-                        .textSelection(.enabled)
-                    HStack {
-                        Text("\(progress.itemsScanned.formatted()) items inspected")
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Button("Cancel Scan", role: .cancel) {
-                            state.cancelScan()
-                        }
-                        .keyboardShortcut(.cancelAction)
-                    }
-                    .font(.caption)
-                }
-                .padding(16)
-                Divider()
-                if state.scannedDirectories.isEmpty {
-                    ContentUnavailableView(
-                        "Waiting for the first directory",
-                        systemImage: "folder.badge.clock",
-                        description: Text("Completed directories will appear here while the scan continues.")
-                    )
-                } else {
-                    List {
-                        let visibleDirectories = state.scannedDirectories.filter { !$0.isHidden }
-                        let hiddenDirectories = state.scannedDirectories.filter { $0.isHidden }
-                        if !visibleDirectories.isEmpty {
-                            Section("Folders") {
-                                ForEach(visibleDirectories) { directory in
-                                    scannedDirectoryRow(directory)
-                                }
-                            }
-                        }
-                        if !hiddenDirectories.isEmpty {
-                            Section("Hidden Folders") {
-                                ForEach(hiddenDirectories) { directory in
-                                    scannedDirectoryRow(directory)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            scanProgressContent(progress, isCancelled: false)
+        case let .cancelled(progress):
+            scanProgressContent(progress, isCancelled: true)
         case let .loaded(result):
             VStack(spacing: 0) {
                 if state.isStale {
@@ -249,6 +198,74 @@ struct DiskExplorerView: View {
         }
     }
 
+    private func scanProgressContent(_ progress: ScanProgress, isCancelled: Bool) -> some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 10) {
+                HStack(spacing: 10) {
+                    if isCancelled {
+                        Image(systemName: "pause.circle.fill").foregroundStyle(.orange)
+                    } else {
+                        ProgressView().controlSize(.small)
+                    }
+                    Text(isCancelled ? "Scan cancelled" : "Scanning \(progress.rootURL.lastPathComponent)…")
+                        .font(.headline)
+                }
+                Text(progress.currentURL.path(percentEncoded: false))
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2, reservesSpace: true)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+                HStack {
+                    Text("\(progress.itemsScanned.formatted()) items inspected")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if isCancelled {
+                        Button("Restart Scan") { state.rescan() }
+                    } else {
+                        Button("Cancel Scan", role: .cancel) { state.cancelScan() }
+                            .keyboardShortcut(.cancelAction)
+                    }
+                }
+                .font(.caption)
+            }
+            .padding(16)
+            Divider()
+            scannedDirectoriesList
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private var scannedDirectoriesList: some View {
+        if state.scannedDirectories.isEmpty {
+            ContentUnavailableView(
+                "Waiting for the first directory",
+                systemImage: "folder.badge.clock",
+                description: Text("Directories and their statuses will appear here.")
+            )
+        } else {
+            List {
+                let visibleDirectories = state.scannedDirectories.filter { !$0.isHidden }
+                let hiddenDirectories = state.scannedDirectories.filter { $0.isHidden }
+                if !visibleDirectories.isEmpty {
+                    Section("Folders") {
+                        ForEach(visibleDirectories) { directory in
+                            scannedDirectoryRow(directory)
+                        }
+                    }
+                }
+                if !hiddenDirectories.isEmpty {
+                    Section("Hidden Folders") {
+                        ForEach(hiddenDirectories) { directory in
+                            scannedDirectoryRow(directory)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     @ViewBuilder
     private func directoryStatus(_ directory: ScannedDirectory) -> some View {
         switch directory.status {
@@ -261,6 +278,9 @@ struct DiskExplorerView: View {
                 Text("Scanning")
             }
             .foregroundStyle(.blue)
+        case .cancelled:
+            Label("Cancelled", systemImage: "pause.circle.fill")
+                .foregroundStyle(.orange)
         case .completed:
             Label("Done", systemImage: "checkmark.circle.fill")
                 .foregroundStyle(.green)
@@ -336,6 +356,39 @@ struct DiskExplorerView: View {
             monitor: StubFileChangeMonitor(),
             trashService: StubTrashService(),
             initialPhase: .loaded(StubDiskScanner.preview.result)
+        )
+    )
+}
+
+#Preview("Cancelled") {
+    let root = URL(fileURLWithPath: "/Users/developer")
+    DiskExplorerView(
+        state: DiskExplorerViewState(
+            scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
+            store: StubDiskScanStore.empty,
+            monitor: StubFileChangeMonitor(),
+            trashService: StubTrashService(),
+            initialScannedDirectories: [
+                ScannedDirectory(
+                    url: root.appending(path: "Library"),
+                    status: .cancelled,
+                    allocatedSize: nil,
+                    fileCount: nil
+                ),
+                ScannedDirectory(
+                    url: root.appending(path: "Projects"),
+                    status: .completed,
+                    allocatedSize: 51_000_000_000,
+                    fileCount: 300_000
+                )
+            ],
+            initialPhase: .cancelled(
+                ScanProgress(
+                    rootURL: root,
+                    currentURL: root.appending(path: "Library/Developer/CoreSimulator"),
+                    itemsScanned: 128_400
+                )
+            )
         )
     )
 }

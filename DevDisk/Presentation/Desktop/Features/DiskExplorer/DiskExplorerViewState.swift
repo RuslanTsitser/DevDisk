@@ -7,6 +7,7 @@ final class DiskExplorerViewState {
     enum Phase: Equatable {
         case idle
         case scanning(ScanProgress)
+        case cancelled(ScanProgress)
         case loaded(DiskScanResult)
         case failed(String)
     }
@@ -41,8 +42,11 @@ final class DiskExplorerViewState {
     }
 
     var currentRootURL: URL? {
-        guard case let .loaded(result) = phase else { return nil }
-        return result.root.url
+        switch phase {
+        case let .loaded(result): result.root.url
+        case let .cancelled(progress): progress.rootURL
+        default: nil
+        }
     }
 
     func restoreIfNeeded() {
@@ -68,9 +72,19 @@ final class DiskExplorerViewState {
     }
 
     func cancelScan() {
+        guard case let .scanning(progress) = phase else { return }
         scanTask?.cancel()
         scanTask = nil
-        phase = .idle
+        scannedDirectories = scannedDirectories.map { directory in
+            guard case .scanning = directory.status else { return directory }
+            return ScannedDirectory(
+                url: directory.url,
+                status: .cancelled,
+                allocatedSize: directory.allocatedSize,
+                fileCount: directory.fileCount
+            )
+        }
+        phase = .cancelled(progress)
     }
 
     func rescan() {
@@ -137,7 +151,11 @@ final class DiskExplorerViewState {
             try? store.save(result, rootURL: url, scannedAt: scannedAt ?? Date())
             startMonitoring(url)
         } catch is CancellationError {
-            phase = .idle
+            if case .scanning = phase {
+                phase = .cancelled(
+                    ScanProgress(rootURL: url, currentURL: url, itemsScanned: 0)
+                )
+            }
         } catch {
             phase = .failed("The selected location could not be scanned: \(error.localizedDescription)")
         }
