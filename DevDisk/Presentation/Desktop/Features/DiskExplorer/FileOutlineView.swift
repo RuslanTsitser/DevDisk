@@ -21,8 +21,6 @@ struct FileOutlineView: NSViewRepresentable {
         outline.headerView = NSTableHeaderView()
         outline.usesAlternatingRowBackgroundColors = true
         outline.allowsMultipleSelection = false
-        outline.autosaveExpandedItems = true
-        outline.autosaveName = "DevDisk.FileOutline"
         outline.rowSizeStyle = .medium
 
         let columns: [(String, String, CGFloat)] = [
@@ -71,6 +69,7 @@ struct FileOutlineView: NSViewRepresentable {
         private var sortKey = "allocated"
         private var sortAscending = false
         private var rebuildTask: Task<Void, Never>?
+        private var expandedURLs: Set<URL> = []
 
         init(parent: FileOutlineView) {
             self.parent = parent
@@ -103,9 +102,10 @@ struct FileOutlineView: NSViewRepresentable {
                     worker.cancel()
                 }
                 guard let self, !Task.isCancelled else { return }
+                captureExpandedURLs()
                 rootItem = value
                 outlineView?.reloadData()
-                outlineView?.expandItem(rootItem)
+                restoreExpandedItems()
                 if let selectedURL, let row = row(for: selectedURL), row >= 0 {
                     outlineView?.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
                 }
@@ -229,6 +229,33 @@ struct FileOutlineView: NSViewRepresentable {
                 if (outlineView.item(atRow: row) as? OutlineItem)?.node.url == url { return row }
             }
             return nil
+        }
+
+        private func captureExpandedURLs() {
+            guard let outlineView else { return }
+            var values: Set<URL> = []
+            for row in 0..<outlineView.numberOfRows {
+                guard let item = outlineView.item(atRow: row) as? OutlineItem,
+                      outlineView.isItemExpanded(item)
+                else { continue }
+                values.insert(item.node.url)
+            }
+            expandedURLs = values
+        }
+
+        private func restoreExpandedItems() {
+            guard let outlineView, let rootItem else { return }
+            for child in rootItem.children {
+                restoreExpansion(of: child, in: outlineView)
+            }
+        }
+
+        private func restoreExpansion(of item: OutlineItem, in outlineView: NSOutlineView) {
+            guard expandedURLs.contains(item.node.url) else { return }
+            outlineView.expandItem(item, expandChildren: false)
+            for child in item.children {
+                restoreExpansion(of: child, in: outlineView)
+            }
         }
 
         private func statusIcon(for node: FileNode) -> NSImage {
