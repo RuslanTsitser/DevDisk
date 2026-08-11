@@ -1,10 +1,13 @@
 # DevDisk
 
-Open-source disk space analyzer for macOS developers. DevDisk explores a user-selected folder or disk, displays directory sizes, and recognizes artifacts from Apple, Android, Flutter, Web/Node, Homebrew, Rust, and other development ecosystems.
+Open-source disk space analyzer for macOS. DevDisk scans Macintosh HD, shows the physical size and status of folders and files, and lets you browse completed directories while the rest of the scan is still running.
 
-## Status
+## Behavior
 
-Early scaffold. Scanning is read-only and the detector catalog is intentionally conservative.
+- The first launch waits for the user to press **Scan Disk** and grant access.
+- Later launches restore the last completed scan immediately.
+- A folder can be refreshed independently without rescanning the whole disk.
+- Scanning is read-only. Results stay on the Mac.
 
 ## Requirements
 
@@ -32,4 +35,3 @@ Core contains domain models and protocols, Services contains file-system adapter
 ## License
 
 Apache-2.0. See `LICENSE`.
-

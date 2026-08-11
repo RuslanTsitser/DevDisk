@@ -1,12 +1,6 @@
 import Foundation
 
 struct FileSystemDiskScanner: DiskScanning {
-    private let detector: any ArtifactDetecting
-
-    init(detector: any ArtifactDetecting) {
-        self.detector = detector
-    }
-
     func scan(
         _ root: URL,
         onProgress: @escaping DiskScanProgressHandler,
@@ -64,18 +58,18 @@ struct FileSystemDiskScanner: DiskScanning {
         let values = try url.resourceValues(forKeys: keys)
         let isDirectory = values.isDirectory == true
         let isSymbolicLink = values.isSymbolicLink == true
-        let isRootChildDirectory = context.isRootChild(url) && isDirectory && !isSymbolicLink
+        let isScannableDirectory = isDirectory && !isSymbolicLink
 
-        if isRootChildDirectory {
+        if isScannableDirectory {
             context.reportDirectory(url, status: .scanning)
         }
 
         if context.shouldExclude(url, values: values) {
-            if isRootChildDirectory { context.reportDirectory(url, status: .skipped) }
+            if isScannableDirectory { context.reportDirectory(url, status: .skipped) }
             throw TraversalError.excluded
         }
         if !isSymbolicLink, !context.registerIfNew(values) {
-            if isRootChildDirectory { context.reportDirectory(url, status: .skipped) }
+            if isScannableDirectory { context.reportDirectory(url, status: .skipped) }
             throw TraversalError.excluded
         }
 
@@ -84,10 +78,8 @@ struct FileSystemDiskScanner: DiskScanning {
                 id: url,
                 url: url,
                 name: url.lastPathComponent,
-                logicalSize: Int64(values.fileSize ?? 0),
-                allocatedSize: Int64(values.fileAllocatedSize ?? values.fileSize ?? 0),
+                allocatedSize: context.validatedSize(values.fileAllocatedSize ?? values.fileSize ?? 0),
                 fileCount: 1,
-                artifact: detector.detect(url: url, isDirectory: false),
                 children: nil
             )
         }
@@ -98,12 +90,10 @@ struct FileSystemDiskScanner: DiskScanning {
             includingPropertiesForKeys: Array(keys),
             options: [.skipsPackageDescendants]
         ).sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
-        if url == context.rootURL {
-            for childURL in childURLs {
-                let childValues = try? childURL.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-                if childValues?.isDirectory == true, childValues?.isSymbolicLink != true {
-                    context.reportDirectory(childURL, status: .waiting)
-                }
+        for childURL in childURLs {
+            let childValues = try? childURL.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            if childValues?.isDirectory == true, childValues?.isSymbolicLink != true {
+                context.reportDirectory(childURL, status: .waiting)
             }
         }
         let children = try childURLs.compactMap { childURL in
@@ -115,7 +105,8 @@ struct FileSystemDiskScanner: DiskScanning {
                 return nil
             } catch {
                 context.recordSkippedItem()
-                if context.isRootChild(childURL) {
+                let childValues = try? childURL.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+                if childValues?.isDirectory == true, childValues?.isSymbolicLink != true {
                     context.reportDirectory(childURL, status: .failed(error.localizedDescription))
                 }
                 return nil
@@ -126,24 +117,15 @@ struct FileSystemDiskScanner: DiskScanning {
             id: url,
             url: url,
             name: url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent,
-            logicalSize: children.reduce(0) { $0 + $1.logicalSize },
-            allocatedSize: children.reduce(0) { $0 + $1.allocatedSize },
+            allocatedSize: children.reduce(0) { context.adding($0, $1.allocatedSize) },
             fileCount: children.reduce(0) { $0 + $1.fileCount },
-            artifact: detector.detect(url: url, isDirectory: true),
             children: children
         )
-        if isRootChildDirectory {
-            let skippedInDirectory = context.skippedItemCount - skippedBeforeScan
-            let status: ScannedDirectory.Status = skippedInDirectory == 0
-                ? .completed
-                : .partial(skippedItemCount: skippedInDirectory)
-            context.reportDirectory(
-                url,
-                status: status,
-                allocatedSize: node.allocatedSize,
-                fileCount: node.fileCount
-            )
-        }
+        let skippedInDirectory = context.skippedItemCount - skippedBeforeScan
+        let status: ScannedDirectory.Status = skippedInDirectory == 0
+            ? .completed
+            : .partial(skippedItemCount: skippedInDirectory)
+        context.reportDirectory(url, status: status, node: node)
         return node
     }
 
@@ -156,6 +138,7 @@ struct FileSystemDiskScanner: DiskScanning {
         let rootVolumeURL: URL?
         let onProgress: DiskScanProgressHandler
         let onDirectoryScanned: ScannedDirectoryHandler
+        let volumeTotalCapacity: Int64?
         private(set) var itemsScanned = 0
         private(set) var skippedItemCount = 0
         private var visitedItems: Set<FileIdentity> = []
@@ -170,6 +153,8 @@ struct FileSystemDiskScanner: DiskScanning {
             self.rootVolumeURL = rootVolumeURL
             self.onProgress = onProgress
             self.onDirectoryScanned = onDirectoryScanned
+            let values = try? rootURL.resourceValues(forKeys: [.volumeTotalCapacityKey])
+            volumeTotalCapacity = values?.volumeTotalCapacity.map(Int64.init)
         }
 
         func shouldExclude(_ url: URL, values: URLResourceValues) -> Bool {
@@ -200,22 +185,27 @@ struct FileSystemDiskScanner: DiskScanning {
             skippedItemCount += 1
         }
 
-        func isRootChild(_ url: URL) -> Bool {
-            url.deletingLastPathComponent().standardizedFileURL == rootURL.standardizedFileURL
+        func validatedSize(_ size: Int) -> Int64 {
+            let value = max(0, Int64(size))
+            guard let volumeTotalCapacity else { return value }
+            return min(value, volumeTotalCapacity)
+        }
+
+        func adding(_ lhs: Int64, _ rhs: Int64) -> Int64 {
+            let (sum, overflow) = lhs.addingReportingOverflow(rhs)
+            return overflow ? Int64.max : sum
         }
 
         func reportDirectory(
             _ url: URL,
             status: ScannedDirectory.Status,
-            allocatedSize: Int64? = nil,
-            fileCount: Int? = nil
+            node: FileNode? = nil
         ) {
             onDirectoryScanned(
                 ScannedDirectory(
                     url: url,
                     status: status,
-                    allocatedSize: allocatedSize,
-                    fileCount: fileCount
+                    node: node
                 )
             )
         }

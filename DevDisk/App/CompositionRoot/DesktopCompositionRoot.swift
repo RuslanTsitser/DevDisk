@@ -1,13 +1,10 @@
 @MainActor
 enum DesktopCompositionRoot {
     static func makeDiskExplorerState() -> DiskExplorerViewState {
-        let detector = RuleBasedArtifactDetector()
-        let scanner = FileSystemDiskScanner(detector: detector)
+        let scanner = FileSystemDiskScanner()
         return DiskExplorerViewState(
             scanDisk: ScanDiskUseCase(scanner: scanner),
             store: JSONDiskScanStore(),
-            monitor: FSEventsFileChangeMonitor(),
-            trashService: FileManagerTrashService(),
             diskAccessRequester: MacOSDiskAccessRequester()
         )
     }

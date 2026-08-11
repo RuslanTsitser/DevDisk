@@ -1,9 +1,7 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct DiskExplorerView: View {
     @State private var state: DiskExplorerViewState
-    @State private var presentsFolderPicker = false
 
     init(state: DiskExplorerViewState) {
         _state = State(initialValue: state)
@@ -15,67 +13,38 @@ struct DiskExplorerView: View {
             Divider()
             content
         }
-        .frame(minWidth: 860, minHeight: 560)
+        .frame(minWidth: 760, minHeight: 520)
         .task { state.appeared() }
-        .fileImporter(
-            isPresented: $presentsFolderPicker,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
-        ) { result in
-            guard case let .success(urls) = result, let url = urls.first else { return }
-            state.startScan(url)
-        }
-        .confirmationDialog(
-            "Move to Trash?",
-            isPresented: Binding(
-                get: { state.pendingDeletion != nil },
-                set: { if !$0 { state.cancelDeletion() } }
-            ),
-            presenting: state.pendingDeletion
-        ) { _ in
-            Button("Move to Trash", role: .destructive) {
-                Task { await state.confirmDeletion() }
-            }
-            Button("Cancel", role: .cancel) { state.cancelDeletion() }
-        } message: { node in
-            Text("\(node.name) uses \(node.allocatedSize.formatted(.byteCount(style: .file))). It can be restored from Trash.")
-        }
         .alert(
-            "Deletion Failed",
+            "Refresh Failed",
             isPresented: Binding(
-                get: { state.deletionError != nil },
-                set: { if !$0 { state.dismissDeletionError() } }
+                get: { state.refreshError != nil },
+                set: { if !$0 { state.dismissRefreshError() } }
             )
         ) {
-            Button("OK") { state.dismissDeletionError() }
+            Button("OK") { state.dismissRefreshError() }
         } message: {
-            Text(state.deletionError ?? "Unknown error")
+            Text(state.refreshError ?? "Unknown error")
         }
     }
 
     private var toolbar: some View {
-        HStack {
+        HStack(spacing: 10) {
             Text("DevDisk")
                 .font(.headline)
             Spacer()
             if state.currentRootURL != nil {
-                Button("Rescan", systemImage: "arrow.clockwise") {
-                    state.rescan()
+                Button("Scan Again", systemImage: "arrow.clockwise") {
+                    state.rescanRoot()
                 }
+                .disabled(isScanning)
                 .keyboardShortcut("r")
-            }
-            Menu {
-                Button("Scan Macintosh HD", systemImage: "internaldrive") {
-                    state.requestMacintoshHDAccess()
+            } else {
+                Button("Scan Disk", systemImage: "internaldrive") {
+                    state.requestScan()
                 }
-                Button("Scan Another Folder…", systemImage: "folder") {
-                    presentsFolderPicker = true
-                }
-                .keyboardShortcut("o")
-            } label: {
-                Image(systemName: "ellipsis.circle")
+                .buttonStyle(.borderedProminent)
             }
-            .menuIndicator(.hidden)
         }
         .padding(12)
     }
@@ -83,390 +52,244 @@ struct DiskExplorerView: View {
     @ViewBuilder
     private var content: some View {
         switch state.phase {
-        case .accessRequired:
-            ContentUnavailableView {
-                Label("Allow Access to Macintosh HD", systemImage: "internaldrive")
-            } description: {
-                Text("DevDisk scans file sizes locally. Your files never leave this Mac. This is required only once.")
-            } actions: {
-                Button("Grant Access") {
-                    state.requestMacintoshHDAccess()
-                }
-                .buttonStyle(.borderedProminent)
-                Button("Scan Another Folder…") {
-                    presentsFolderPicker = true
-                }
-            }
         case .idle:
-            ContentUnavailableView(
-                "Preparing Macintosh HD",
-                systemImage: "externaldrive",
-                description: Text("DevDisk is preparing the disk scanner.")
-            )
-        case let .scanning(progress):
-            scanProgressContent(progress, isCancelled: false)
-        case let .cancelled(progress):
-            scanProgressContent(progress, isCancelled: true)
-        case let .loaded(result):
-            VStack(spacing: 0) {
-                if state.isStale {
-                    HStack {
-                        Label("Files changed since this scan. Sizes may be outdated.", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
-                        Spacer()
-                        Button("Rescan") { state.rescan() }
-                    }
-                    .font(.callout)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(.orange.opacity(0.12))
-                }
-                scanSummary(result)
-                Divider()
-                List([result.root], children: \.children) { node in
-                    HStack {
-                        Image(systemName: node.isDirectory ? "folder" : "doc")
-                            .foregroundStyle(node.isDirectory ? .blue : .secondary)
-                        Text(node.name)
-                            .lineLimit(1)
-                        if let artifact = node.artifact {
-                            Text(artifact.ecosystem.rawValue)
-                                .font(.caption)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(.quaternary, in: Capsule())
-                        }
-                        Spacer()
-                        Text(node.allocatedSize, format: .byteCount(style: .file))
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    }
-                    .contextMenu {
-                        if node.url != result.root.url {
-                            Button("Move to Trash", systemImage: "trash", role: .destructive) {
-                                state.requestDeletion(node)
-                            }
-                        }
-                    }
-                }
+            ContentUnavailableView {
+                Label("See What Uses Your Disk", systemImage: "internaldrive")
+            } description: {
+                Text("Start a scan, then allow access to Macintosh HD. DevDisk only reads file metadata and keeps the result on this Mac.")
+            } actions: {
+                Button("Scan Disk") { state.requestScan() }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
             }
         case let .failed(message):
-            ContentUnavailableView("Scan failed", systemImage: "exclamationmark.triangle", description: Text(message))
+            ContentUnavailableView {
+                Label("Scan Failed", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(message)
+            } actions: {
+                Button("Try Again") { state.requestScan() }
+                    .buttonStyle(.borderedProminent)
+            }
+        case let .scanning(progress):
+            explorer(progress: progress, result: nil)
+        case let .loaded(result):
+            explorer(progress: nil, result: result)
         }
     }
 
-    private func scanSummary(_ result: DiskScanResult) -> some View {
-        HStack(spacing: 24) {
-            summaryValue("Scanned files", bytes: result.root.allocatedSize)
-            if let used = result.volumeUsedCapacity {
-                summaryValue("Entire volume used", bytes: used)
+    private func explorer(progress: ScanProgress?, result: DiskScanResult?) -> some View {
+        VStack(spacing: 0) {
+            if let progress {
+                scanningHeader(progress)
+            } else if let result {
+                resultHeader(result)
             }
+            Divider()
+            browserHeader
+            Divider()
+            browserList
+        }
+    }
+
+    private func scanningHeader(_ progress: ScanProgress) -> some View {
+        HStack(spacing: 12) {
+            ProgressView().controlSize(.small)
             VStack(alignment: .leading, spacing: 3) {
-                Text("Scope").font(.caption).foregroundStyle(.secondary)
-                Text(result.root.url.path(percentEncoded: false))
+                Text("Scanning disk")
+                    .font(.headline)
+                Text(progress.currentURL.path(percentEncoded: false))
                     .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
+            Spacer()
+            Text("\(progress.itemsScanned.formatted()) items")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
+        .padding(12)
+        .background(.bar)
+    }
+
+    private func resultHeader(_ result: DiskScanResult) -> some View {
+        HStack(spacing: 24) {
+            summaryValue("Scanned content", bytes: result.displayedSize)
+            if let used = result.volumeUsedCapacity {
+                summaryValue("Used on volume", bytes: used)
+            }
             if let scannedAt = state.scannedAt {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Scanned").font(.caption).foregroundStyle(.secondary)
-                    Text(scannedAt, format: .dateTime.hour().minute())
+                    Text("Last scan").font(.caption).foregroundStyle(.secondary)
+                    Text(scannedAt, format: .dateTime.day().month().hour().minute())
                         .font(.caption)
                 }
             }
             Spacer()
             if result.skippedItemCount > 0 {
-                VStack(alignment: .trailing, spacing: 4) {
-                    Label("\(result.skippedItemCount.formatted()) protected items skipped", systemImage: "exclamationmark.shield")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                    Button("Enable Full Disk Access") {
-                        state.openFullDiskAccessSettings()
-                    }
+                Label("\(result.skippedItemCount.formatted()) unreadable items", systemImage: "exclamationmark.shield")
                     .font(.caption)
-                    .buttonStyle(.link)
-                }
+                    .foregroundStyle(.orange)
             }
         }
         .padding(12)
         .background(.bar)
     }
 
-    private func summaryValue(_ title: String, bytes: Int64) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            Text(bytes, format: .byteCount(style: .file)).font(.headline).monospacedDigit()
+    private var browserHeader: some View {
+        HStack(spacing: 10) {
+            Button("Back", systemImage: "chevron.left") {
+                state.navigateBack()
+            }
+            .labelStyle(.iconOnly)
+            .disabled(!state.canNavigateBack)
+
+            Image(systemName: "folder.fill")
+                .foregroundStyle(.blue)
+            Text(state.currentDirectoryName)
+                .font(.headline)
+                .lineLimit(1)
+            if let path = state.currentDirectoryURL?.path(percentEncoded: false) {
+                Text(path)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+    }
+
+    @ViewBuilder
+    private var browserList: some View {
+        let items = state.children()
+        if items.isEmpty {
+            ContentUnavailableView(
+                isScanning ? "Waiting for contents" : "This folder is empty",
+                systemImage: isScanning ? "folder.badge.clock" : "folder",
+                description: Text(isScanning ? "Ready folders will become available while the rest of the disk is scanned." : "No files or folders were found.")
+            )
+        } else {
+            List(items) { item in
+                itemRow(item)
+            }
+            .listStyle(.inset)
         }
     }
 
-    private func scannedDirectoryRow(_ directory: ScannedDirectory) -> some View {
+    private func itemRow(_ item: DiskExplorerViewState.BrowserItem) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: directory.isHidden ? "folder.fill.badge.minus" : "folder")
-                .foregroundStyle(directory.isHidden ? Color.secondary : Color.blue)
-            Text(directory.name)
-                .lineLimit(1)
-            Spacer()
-            directoryStatus(directory)
-                .frame(minWidth: 110, alignment: .leading)
-            if let fileCount = directory.fileCount {
-                Text("\(fileCount.formatted()) files")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .frame(minWidth: 90, alignment: .trailing)
+            Button {
+                state.open(item)
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: item.isDirectory ? "folder" : "doc")
+                        .foregroundStyle(item.isDirectory ? Color.blue : Color.secondary)
+                    Text(item.name)
+                        .lineLimit(1)
+                    Spacer()
+                }
+                .contentShape(Rectangle())
             }
-            if let allocatedSize = directory.allocatedSize {
-                Text(allocatedSize, format: .byteCount(style: .file))
+            .buttonStyle(.plain)
+            .disabled(!item.isDirectory)
+
+            status(item.status)
+                .frame(minWidth: 92, alignment: .leading)
+
+            if let size = item.allocatedSize {
+                Text(size, format: .byteCount(style: .file))
                     .monospacedDigit()
-                    .frame(minWidth: 90, alignment: .trailing)
+                    .frame(minWidth: 92, alignment: .trailing)
             } else {
                 Text("—")
                     .foregroundStyle(.tertiary)
-                    .frame(minWidth: 90, alignment: .trailing)
+                    .frame(minWidth: 92, alignment: .trailing)
             }
-        }
-    }
 
-    private func scanProgressContent(_ progress: ScanProgress, isCancelled: Bool) -> some View {
-        VStack(spacing: 0) {
-            VStack(spacing: 10) {
-                HStack(spacing: 10) {
-                    if isCancelled {
-                        Image(systemName: "pause.circle.fill").foregroundStyle(.orange)
-                    } else {
-                        ProgressView().controlSize(.small)
-                    }
-                    Text(isCancelled ? "Scan cancelled" : "Scanning \(progress.rootURL.lastPathComponent)…")
-                        .font(.headline)
+            if canRefresh(item) {
+                Button("Refresh folder", systemImage: "arrow.clockwise") {
+                    state.refresh(item)
                 }
-                Text(progress.currentURL.path(percentEncoded: false))
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2, reservesSpace: true)
-                    .truncationMode(.middle)
-                    .textSelection(.enabled)
-                HStack {
-                    Text("\(progress.itemsScanned.formatted()) items inspected")
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    if isCancelled {
-                        Button("Restart Scan") { state.rescan() }
-                    } else {
-                        Button("Cancel Scan", role: .cancel) { state.cancelScan() }
-                            .keyboardShortcut(.cancelAction)
+                .labelStyle(.iconOnly)
+                .disabled(state.refreshingURL != nil)
+                .overlay {
+                    if state.refreshingURL == item.url {
+                        ProgressView().controlSize(.mini)
                     }
                 }
-                .font(.caption)
             }
-            .padding(16)
-            Divider()
-            scannedDirectoriesList
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.vertical, 2)
     }
 
     @ViewBuilder
-    private var scannedDirectoriesList: some View {
-        if state.scannedDirectories.isEmpty {
-            ContentUnavailableView(
-                "Waiting for the first directory",
-                systemImage: "folder.badge.clock",
-                description: Text("Directories and their statuses will appear here.")
-            )
-        } else {
-            List {
-                let visibleDirectories = state.scannedDirectories.filter { !$0.isHidden }
-                let hiddenDirectories = state.scannedDirectories.filter { $0.isHidden }
-                if !visibleDirectories.isEmpty {
-                    Section("Folders") {
-                        ForEach(visibleDirectories) { directory in
-                            scannedDirectoryRow(directory)
-                        }
-                    }
-                }
-                if !hiddenDirectories.isEmpty {
-                    Section("Hidden Folders") {
-                        ForEach(hiddenDirectories) { directory in
-                            scannedDirectoryRow(directory)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func directoryStatus(_ directory: ScannedDirectory) -> some View {
-        switch directory.status {
+    private func status(_ status: ScannedDirectory.Status) -> some View {
+        switch status {
         case .waiting:
-            Label("Waiting", systemImage: "clock")
-                .foregroundStyle(.secondary)
+            Label("Waiting", systemImage: "clock").foregroundStyle(.secondary)
         case .scanning:
             HStack(spacing: 6) {
                 ProgressView().controlSize(.mini)
                 Text("Scanning")
             }
             .foregroundStyle(.blue)
-        case .cancelled:
-            Label("Cancelled", systemImage: "pause.circle.fill")
-                .foregroundStyle(.orange)
         case .completed:
-            Label("Done", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green)
+            Label("Ready", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
         case let .partial(skippedItemCount):
-            Label("Partial (\(skippedItemCount))", systemImage: "exclamationmark.triangle.fill")
+            Label("Partial", systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
+                .help("\(skippedItemCount) items could not be read")
         case .skipped:
-            Label("Skipped", systemImage: "minus.circle")
-                .foregroundStyle(.secondary)
-        case .failed:
+            Label("Skipped", systemImage: "minus.circle").foregroundStyle(.secondary)
+        case let .failed(message):
             Label("Failed", systemImage: "xmark.circle.fill")
                 .foregroundStyle(.red)
-                .help(directoryFailureMessage(directory) ?? "The directory could not be scanned.")
+                .help(message)
         }
     }
 
-    private func directoryFailureMessage(_ directory: ScannedDirectory) -> String? {
-        guard case let .failed(message) = directory.status else { return nil }
-        return message
+    private func summaryValue(_ title: String, bytes: Int64) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(bytes, format: .byteCount(style: .file))
+                .font(.headline)
+                .monospacedDigit()
+        }
+    }
+
+    private var isScanning: Bool {
+        if case .scanning = state.phase { return true }
+        return false
+    }
+
+    private func canRefresh(_ item: DiskExplorerViewState.BrowserItem) -> Bool {
+        guard case let .loaded(result) = state.phase else { return false }
+        return item.isDirectory && item.url != result.root.url
     }
 }
 
-#Preview("Access Required") {
+#Preview("First Launch") {
     DiskExplorerView(
         state: DiskExplorerViewState(
             scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
             store: StubDiskScanStore.empty,
-            monitor: StubFileChangeMonitor(),
-            trashService: StubTrashService(),
-            diskAccessRequester: StubDiskAccessRequester.denied,
-            initialPhase: .accessRequired
+            diskAccessRequester: StubDiskAccessRequester.denied
         )
     )
 }
 
-#Preview("Scanning") {
-    let root = URL(fileURLWithPath: "/Users/developer")
+#Preview("Last Scan") {
     DiskExplorerView(
         state: DiskExplorerViewState(
             scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
             store: StubDiskScanStore.empty,
-            monitor: StubFileChangeMonitor(),
-            trashService: StubTrashService(),
-            diskAccessRequester: StubDiskAccessRequester.denied,
-            initialScannedDirectories: [
-                ScannedDirectory(
-                    url: root.appending(path: "Library/Developer/CoreSimulator/Caches"),
-                    status: .completed,
-                    allocatedSize: 8_400_000_000,
-                    fileCount: 42_310
-                ),
-                ScannedDirectory(
-                    url: root.appending(path: "Projects/client-app/node_modules"),
-                    status: .scanning,
-                    allocatedSize: nil,
-                    fileCount: nil
-                )
-            ],
-            initialPhase: .scanning(
-                ScanProgress(
-                    rootURL: root,
-                    currentURL: root.appending(path: "Projects/client-app/node_modules/@types/react"),
-                    itemsScanned: 18_642
-                )
-            )
-        )
-    )
-}
-
-#Preview("Loaded") {
-    DiskExplorerView(
-        state: DiskExplorerViewState(
-            scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
-            store: StubDiskScanStore.empty,
-            monitor: StubFileChangeMonitor(),
-            trashService: StubTrashService(),
             diskAccessRequester: StubDiskAccessRequester.denied,
             initialPhase: .loaded(StubDiskScanner.preview.result)
-        )
-    )
-}
-
-#Preview("Cancelled") {
-    let root = URL(fileURLWithPath: "/Users/developer")
-    DiskExplorerView(
-        state: DiskExplorerViewState(
-            scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
-            store: StubDiskScanStore.empty,
-            monitor: StubFileChangeMonitor(),
-            trashService: StubTrashService(),
-            diskAccessRequester: StubDiskAccessRequester.denied,
-            initialScannedDirectories: [
-                ScannedDirectory(
-                    url: root.appending(path: "Library"),
-                    status: .cancelled,
-                    allocatedSize: nil,
-                    fileCount: nil
-                ),
-                ScannedDirectory(
-                    url: root.appending(path: "Projects"),
-                    status: .completed,
-                    allocatedSize: 51_000_000_000,
-                    fileCount: 300_000
-                )
-            ],
-            initialPhase: .cancelled(
-                ScanProgress(
-                    rootURL: root,
-                    currentURL: root.appending(path: "Library/Developer/CoreSimulator"),
-                    itemsScanned: 128_400
-                )
-            )
-        )
-    )
-}
-
-#Preview("Empty Folder") {
-    let emptyRoot = FileNode(
-        id: URL(fileURLWithPath: "/Users/developer/EmptyProject"),
-        url: URL(fileURLWithPath: "/Users/developer/EmptyProject"),
-        name: "EmptyProject",
-        logicalSize: 0,
-        allocatedSize: 0,
-        fileCount: 0,
-        artifact: nil,
-        children: []
-    )
-
-    DiskExplorerView(
-        state: DiskExplorerViewState(
-            scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
-            store: StubDiskScanStore.empty,
-            monitor: StubFileChangeMonitor(),
-            trashService: StubTrashService(),
-            diskAccessRequester: StubDiskAccessRequester.denied,
-            initialPhase: .loaded(
-                DiskScanResult(
-                    root: emptyRoot,
-                    skippedItemCount: 0,
-                    volumeTotalCapacity: 494_380_000_000,
-                    volumeAvailableCapacity: 94_990_000_000
-                )
-            )
-        )
-    )
-}
-
-#Preview("Error") {
-    DiskExplorerView(
-        state: DiskExplorerViewState(
-            scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
-            store: StubDiskScanStore.empty,
-            monitor: StubFileChangeMonitor(),
-            trashService: StubTrashService(),
-            diskAccessRequester: StubDiskAccessRequester.denied,
-            initialPhase: .failed(
-                "DevDisk couldn’t read this location. Choose another folder or review its privacy permissions."
-            )
         )
     )
 }

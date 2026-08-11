@@ -4,39 +4,35 @@ import Testing
 
 struct FileNodeTests {
     @Test
-    func removingChildRecalculatesAncestors() {
+    func replacingChildRecalculatesAncestors() {
         let rootURL = URL(fileURLWithPath: "/root")
-        let kept = file("kept", size: 30, root: rootURL)
-        let removed = file("removed", size: 70, root: rootURL)
+        let original = folder("folder", size: 70, root: rootURL)
         let root = FileNode(
             id: rootURL,
             url: rootURL,
             name: "root",
-            logicalSize: 100,
-            allocatedSize: 100,
-            fileCount: 2,
-            artifact: nil,
-            children: [kept, removed]
+            allocatedSize: 70,
+            fileCount: 1,
+            children: [original]
         )
+        let replacement = folder("folder", size: 30, root: rootURL)
 
-        let updated = root.removing(removed.url)
+        let updated = root.replacing(replacement)
 
-        #expect(updated?.allocatedSize == 30)
-        #expect(updated?.fileCount == 1)
-        #expect(updated?.children == [kept])
+        #expect(updated.allocatedSize == 30)
+        #expect(updated.children == [replacement])
+        #expect(updated.node(at: replacement.url) == replacement)
     }
 
-    private func file(_ name: String, size: Int64, root: URL) -> FileNode {
+    private func folder(_ name: String, size: Int64, root: URL) -> FileNode {
         let url = root.appending(path: name)
         return FileNode(
             id: url,
             url: url,
             name: name,
-            logicalSize: size,
             allocatedSize: size,
             fileCount: 1,
-            artifact: nil,
-            children: nil
+            children: []
         )
     }
 }

@@ -15,7 +15,7 @@ struct FileSystemDiskScannerTests {
         try Data(repeating: 0xAB, count: 8_192).write(to: original)
         try FileManager.default.linkItem(at: original, to: hardLink)
 
-        let scanner = FileSystemDiskScanner(detector: RuleBasedArtifactDetector())
+        let scanner = FileSystemDiskScanner()
         let result = try await scanner.scan(
             root,
             onProgress: { _ in },
@@ -27,7 +27,7 @@ struct FileSystemDiskScannerTests {
     }
 
     @Test
-    func reportsStableStatusesOnlyForRootDirectories() async throws {
+    func reportsStatusesAndCompletedNodesForEveryDirectory() async throws {
         let root = FileManager.default.temporaryDirectory
             .appending(path: UUID().uuidString, directoryHint: .isDirectory)
         let visible = root.appending(path: "Visible", directoryHint: .isDirectory)
@@ -38,25 +38,24 @@ struct FileSystemDiskScannerTests {
         defer { try? FileManager.default.removeItem(at: root) }
 
         let updates = LockedUpdates()
-        let scanner = FileSystemDiskScanner(detector: RuleBasedArtifactDetector())
+        let scanner = FileSystemDiskScanner()
         _ = try await scanner.scan(
             root,
             onProgress: { _ in },
             onDirectoryScanned: { updates.append($0) }
         )
 
-        let normalizedVisible = visible.resolvingSymlinksInPath()
-        let normalizedHidden = hidden.resolvingSymlinksInPath()
-        #expect(Set(updates.values.map { $0.url.resolvingSymlinksInPath() }) == Set([normalizedVisible, normalizedHidden]))
+        let expected = Set([root, visible, nested, hidden].map { $0.resolvingSymlinksInPath() })
+        #expect(Set(updates.values.map { $0.url.resolvingSymlinksInPath() }) == expected)
         #expect(
             updates.values
-                .filter { $0.url.resolvingSymlinksInPath() == normalizedVisible }
+                .filter { $0.url.resolvingSymlinksInPath() == visible.resolvingSymlinksInPath() }
                 .map(\.status) == [.waiting, .scanning, .completed]
         )
         #expect(
             updates.values
-                .filter { $0.url.resolvingSymlinksInPath() == normalizedHidden }
-                .map(\.status) == [.waiting, .scanning, .completed]
+                .filter { $0.url.resolvingSymlinksInPath() == nested.resolvingSymlinksInPath() }
+                .last?.node?.url.resolvingSymlinksInPath() == nested.resolvingSymlinksInPath()
         )
     }
 }

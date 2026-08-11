@@ -13,4 +13,23 @@ struct ScanDiskUseCaseTests {
         #expect(result.skippedItemCount == 7)
         #expect(result.volumeUsedCapacity == 399_390_000_000)
     }
+
+    @Test
+    func displayedSizeNeverExceedsUsedVolumeSpace() {
+        let result = DiskScanResult(
+            root: FileNode(
+                id: URL(fileURLWithPath: "/"),
+                url: URL(fileURLWithPath: "/"),
+                name: "/",
+                allocatedSize: 900,
+                fileCount: 1,
+                children: []
+            ),
+            skippedItemCount: 0,
+            volumeTotalCapacity: 1_000,
+            volumeAvailableCapacity: 300
+        )
+
+        #expect(result.displayedSize == 700)
+    }
 }

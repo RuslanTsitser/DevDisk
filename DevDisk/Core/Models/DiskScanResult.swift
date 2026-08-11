@@ -11,11 +11,15 @@ struct DiskScanResult: Codable, Equatable, Sendable {
         return max(0, volumeTotalCapacity - volumeAvailableCapacity)
     }
 
-    func removing(_ target: URL) -> DiskScanResult? {
-        guard let updatedRoot = root.removing(target) else { return nil }
+    var displayedSize: Int64 {
+        guard let volumeUsedCapacity else { return root.allocatedSize }
+        return min(root.allocatedSize, volumeUsedCapacity)
+    }
+
+    func replacing(_ replacement: DiskScanResult) -> DiskScanResult {
         return DiskScanResult(
-            root: updatedRoot,
-            skippedItemCount: skippedItemCount,
+            root: root.replacing(replacement.root),
+            skippedItemCount: max(skippedItemCount, replacement.skippedItemCount),
             volumeTotalCapacity: volumeTotalCapacity,
             volumeAvailableCapacity: volumeAvailableCapacity
         )

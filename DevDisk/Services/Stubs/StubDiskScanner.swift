@@ -19,8 +19,7 @@ struct StubDiskScanner: DiskScanning {
             ScannedDirectory(
                 url: result.root.url,
                 status: .completed,
-                allocatedSize: result.root.allocatedSize,
-                fileCount: result.root.fileCount
+                node: result.root
             )
         )
         return result
@@ -32,29 +31,23 @@ struct StubDiskScanner: DiskScanning {
                 id: URL(fileURLWithPath: "/Users/developer"),
                 url: URL(fileURLWithPath: "/Users/developer"),
                 name: "developer",
-                logicalSize: 91_000_000_000,
                 allocatedSize: 84_000_000_000,
                 fileCount: 420_000,
-                artifact: nil,
                 children: [
                     FileNode(
                         id: URL(fileURLWithPath: "/Users/developer/Projects"),
                         url: URL(fileURLWithPath: "/Users/developer/Projects"),
                         name: "Projects",
-                        logicalSize: 55_000_000_000,
                         allocatedSize: 51_000_000_000,
                         fileCount: 300_000,
-                        artifact: nil,
                         children: []
                     ),
                     FileNode(
                         id: URL(fileURLWithPath: "/Users/developer/.pub-cache"),
                         url: URL(fileURLWithPath: "/Users/developer/.pub-cache"),
                         name: ".pub-cache",
-                        logicalSize: 12_000_000_000,
                         allocatedSize: 11_000_000_000,
                         fileCount: 80_000,
-                        artifact: .init(ecosystem: .flutter, kind: "Pub cache", removalRisk: .redownloadable),
                         children: []
                     )
                 ]
