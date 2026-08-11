@@ -22,10 +22,13 @@
 		A1A884C872BC223D3B7058D5 /* StubFileChangeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEC7446AD53EE6A0D41A2BEE /* StubFileChangeMonitor.swift */; };
 		B1A114F0FBB3597BF4DC546B /* DesktopApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 978CE70772CB7F6D5508266D /* DesktopApp.swift */; };
 		B6B527A1E494E6ECC32A84C5 /* FileSystemDiskScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 161D89C5593F62045B96D3DF /* FileSystemDiskScannerTests.swift */; };
+		B93935FEDB2391A1DA3B42B3 /* MacOSDiskAccessRequester.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FD2FFED859AF29649886F32 /* MacOSDiskAccessRequester.swift */; };
+		BC15D0AA5933BF771FC5D0F9 /* DiskAccessRequesting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74AE8A6F0AC4C15C2893CA9B /* DiskAccessRequesting.swift */; };
 		BF2588CA0739E4E80C90E4C0 /* FSEventsFileChangeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79796D45109A6EA2FC8BA923 /* FSEventsFileChangeMonitor.swift */; };
 		C0CB65BD8AD1943988E7E5E3 /* ScanDiskUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C2A6CB15234C66E7A2DE1F3 /* ScanDiskUseCase.swift */; };
 		C8FAE9F0E3B02BE4E2B562C0 /* StubTrashService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4090362F835F1B1E7B61AC /* StubTrashService.swift */; };
 		C97D8F07BD7FAE5C9D28B246 /* RuleBasedArtifactDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD30A27D4620C1BE1DE67F03 /* RuleBasedArtifactDetector.swift */; };
+		D0841731DAEF23AA74810B1C /* StubDiskAccessRequester.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42FF8F934908A978385B16FD /* StubDiskAccessRequester.swift */; };
 		D092D0D086AF1E88512A762D /* SavedDiskScan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0B9C2B99DC6704935FA7E9 /* SavedDiskScan.swift */; };
 		D26A90BFE5B6B1351634E7ED /* DiskScanning.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FC1474DE2ABF534971A5674 /* DiskScanning.swift */; };
 		D67EC9144B6AD672286AC6F7 /* DiskExplorerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 215B715AA5867469F70BD2AC /* DiskExplorerView.swift */; };
@@ -59,10 +62,13 @@
 		2A002392778526D294A071F4 /* FileManagerTrashService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileManagerTrashService.swift; sourceTree = "<group>"; };
 		3A0B9C2B99DC6704935FA7E9 /* SavedDiskScan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedDiskScan.swift; sourceTree = "<group>"; };
 		3EDF7C5EF9F1E29EF5010781 /* StubDiskScanStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubDiskScanStore.swift; sourceTree = "<group>"; };
+		42FF8F934908A978385B16FD /* StubDiskAccessRequester.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubDiskAccessRequester.swift; sourceTree = "<group>"; };
 		478D312EA5851F1BF9F6CC25 /* StubDiskScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubDiskScanner.swift; sourceTree = "<group>"; };
+		74AE8A6F0AC4C15C2893CA9B /* DiskAccessRequesting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskAccessRequesting.swift; sourceTree = "<group>"; };
 		79796D45109A6EA2FC8BA923 /* FSEventsFileChangeMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FSEventsFileChangeMonitor.swift; sourceTree = "<group>"; };
 		7C2A6CB15234C66E7A2DE1F3 /* ScanDiskUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanDiskUseCase.swift; sourceTree = "<group>"; };
 		7FC1474DE2ABF534971A5674 /* DiskScanning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskScanning.swift; sourceTree = "<group>"; };
+		7FD2FFED859AF29649886F32 /* MacOSDiskAccessRequester.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacOSDiskAccessRequester.swift; sourceTree = "<group>"; };
 		802D3416D309DB8D971059DD /* DevDisk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DevDisk.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8187025103F009A47788D16A /* FileSystemDiskScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemDiskScanner.swift; sourceTree = "<group>"; };
 		8E5ABBA6E78FEDCD06B82699 /* FileNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileNode.swift; sourceTree = "<group>"; };
@@ -100,6 +106,7 @@
 		1E9609106372BF6E9E664332 /* Stubs */ = {
 			isa = PBXGroup;
 			children = (
+				42FF8F934908A978385B16FD /* StubDiskAccessRequester.swift */,
 				478D312EA5851F1BF9F6CC25 /* StubDiskScanner.swift */,
 				3EDF7C5EF9F1E29EF5010781 /* StubDiskScanStore.swift */,
 				EEC7446AD53EE6A0D41A2BEE /* StubFileChangeMonitor.swift */,
@@ -136,6 +143,7 @@
 				2A002392778526D294A071F4 /* FileManagerTrashService.swift */,
 				8187025103F009A47788D16A /* FileSystemDiskScanner.swift */,
 				79796D45109A6EA2FC8BA923 /* FSEventsFileChangeMonitor.swift */,
+				7FD2FFED859AF29649886F32 /* MacOSDiskAccessRequester.swift */,
 				BD30A27D4620C1BE1DE67F03 /* RuleBasedArtifactDetector.swift */,
 			);
 			path = FileSystem;
@@ -218,6 +226,7 @@
 			isa = PBXGroup;
 			children = (
 				1368B0795E54339592960D8B /* ArtifactDetecting.swift */,
+				74AE8A6F0AC4C15C2893CA9B /* DiskAccessRequesting.swift */,
 				7FC1474DE2ABF534971A5674 /* DiskScanning.swift */,
 				983821BD31FAAB0A3A5E2772 /* DiskScanStoring.swift */,
 				F52BDB6F334D7C64296C4FD8 /* FileChangeMonitoring.swift */,
@@ -368,6 +377,7 @@
 				3C9C3B1863DC620CA620B777 /* DesktopRoute.swift in Sources */,
 				EA8E4C4EDE3FB26C1F8FF1BE /* DesktopRouter.swift in Sources */,
 				F03183F962E5C3A60D6E835D /* DeveloperArtifact.swift in Sources */,
+				BC15D0AA5933BF771FC5D0F9 /* DiskAccessRequesting.swift in Sources */,
 				D67EC9144B6AD672286AC6F7 /* DiskExplorerView.swift in Sources */,
 				EACCC0DCA32012E2D5EB1E6B /* DiskExplorerViewState.swift in Sources */,
 				167BCF34D7D9BCE74B9F3757 /* DiskScanResult.swift in Sources */,
@@ -380,11 +390,13 @@
 				D88C88650F1A096B9E1E913C /* FileSystemDiskScanner.swift in Sources */,
 				7D3E800530D273549C8769E5 /* FileTrashing.swift in Sources */,
 				04E3FDF52F9FF5B0EF4009E5 /* JSONDiskScanStore.swift in Sources */,
+				B93935FEDB2391A1DA3B42B3 /* MacOSDiskAccessRequester.swift in Sources */,
 				C97D8F07BD7FAE5C9D28B246 /* RuleBasedArtifactDetector.swift in Sources */,
 				D092D0D086AF1E88512A762D /* SavedDiskScan.swift in Sources */,
 				C0CB65BD8AD1943988E7E5E3 /* ScanDiskUseCase.swift in Sources */,
 				51DC8470BBCF22582CFD8107 /* ScanProgress.swift in Sources */,
 				67F1A4D4B4C7F106F913E128 /* ScannedDirectory.swift in Sources */,
+				D0841731DAEF23AA74810B1C /* StubDiskAccessRequester.swift in Sources */,
 				3F85BB14EFCBC6D21949F17F /* StubDiskScanStore.swift in Sources */,
 				F6D16038CB2618E1EC9B94BD /* StubDiskScanner.swift in Sources */,
 				A1A884C872BC223D3B7058D5 /* StubFileChangeMonitor.swift in Sources */,

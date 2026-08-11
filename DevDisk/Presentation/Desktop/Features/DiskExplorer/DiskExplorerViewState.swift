@@ -5,6 +5,7 @@ import Observation
 @Observable
 final class DiskExplorerViewState {
     enum Phase: Equatable {
+        case accessRequired
         case idle
         case scanning(ScanProgress)
         case cancelled(ScanProgress)
@@ -22,6 +23,7 @@ final class DiskExplorerViewState {
     private let store: any DiskScanStoring
     private let monitor: any FileChangeMonitoring
     private let trashService: any FileTrashing
+    private let diskAccessRequester: any DiskAccessRequesting
     @ObservationIgnored private var scanTask: Task<Void, Never>?
     @ObservationIgnored private var didRestore = false
 
@@ -30,6 +32,7 @@ final class DiskExplorerViewState {
         store: any DiskScanStoring,
         monitor: any FileChangeMonitoring,
         trashService: any FileTrashing,
+        diskAccessRequester: any DiskAccessRequesting,
         initialScannedDirectories: [ScannedDirectory] = [],
         initialPhase: Phase = .idle
     ) {
@@ -37,6 +40,7 @@ final class DiskExplorerViewState {
         self.store = store
         self.monitor = monitor
         self.trashService = trashService
+        self.diskAccessRequester = diskAccessRequester
         scannedDirectories = initialScannedDirectories
         phase = initialPhase
     }
@@ -49,19 +53,39 @@ final class DiskExplorerViewState {
         }
     }
 
-    func restoreIfNeeded() {
+    func appeared() {
         guard !didRestore else { return }
         didRestore = true
         guard case .idle = phase else { return }
         do {
-            guard let saved = try store.load() else { return }
+            guard let saved = try store.load() else {
+                if let root = diskAccessRequester.restoredMacintoshHDURL() {
+                    startScan(root)
+                } else {
+                    phase = .accessRequired
+                }
+                return
+            }
             phase = .loaded(saved.result)
             scannedAt = saved.scannedAt
             isStale = true
             startMonitoring(saved.rootURL)
         } catch {
-            phase = .failed("The previous scan could not be restored: \(error.localizedDescription)")
+            if let root = diskAccessRequester.restoredMacintoshHDURL() {
+                startScan(root)
+            } else {
+                phase = .accessRequired
+            }
         }
+    }
+
+    func requestMacintoshHDAccess() {
+        guard let url = diskAccessRequester.requestMacintoshHDAccess() else { return }
+        startScan(url)
+    }
+
+    func openFullDiskAccessSettings() {
+        diskAccessRequester.openFullDiskAccessSettings()
     }
 
     func startScan(_ url: URL) {

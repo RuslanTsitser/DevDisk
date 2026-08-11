@@ -7,7 +7,8 @@ enum DesktopCompositionRoot {
             scanDisk: ScanDiskUseCase(scanner: scanner),
             store: JSONDiskScanStore(),
             monitor: FSEventsFileChangeMonitor(),
-            trashService: FileManagerTrashService()
+            trashService: FileManagerTrashService(),
+            diskAccessRequester: MacOSDiskAccessRequester()
         )
     }
 }

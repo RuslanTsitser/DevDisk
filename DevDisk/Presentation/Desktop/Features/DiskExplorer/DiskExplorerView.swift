@@ -16,7 +16,7 @@ struct DiskExplorerView: View {
             content
         }
         .frame(minWidth: 860, minHeight: 560)
-        .task { state.restoreIfNeeded() }
+        .task { state.appeared() }
         .fileImporter(
             isPresented: $presentsFolderPicker,
             allowedContentTypes: [.folder],
@@ -64,10 +64,18 @@ struct DiskExplorerView: View {
                 }
                 .keyboardShortcut("r")
             }
-            Button("Scan Folder or Disk") {
-                presentsFolderPicker = true
+            Menu {
+                Button("Scan Macintosh HD", systemImage: "internaldrive") {
+                    state.requestMacintoshHDAccess()
+                }
+                Button("Scan Another Folder…", systemImage: "folder") {
+                    presentsFolderPicker = true
+                }
+                .keyboardShortcut("o")
+            } label: {
+                Image(systemName: "ellipsis.circle")
             }
-            .keyboardShortcut("o")
+            .menuIndicator(.hidden)
         }
         .padding(12)
     }
@@ -75,11 +83,25 @@ struct DiskExplorerView: View {
     @ViewBuilder
     private var content: some View {
         switch state.phase {
+        case .accessRequired:
+            ContentUnavailableView {
+                Label("Allow Access to Macintosh HD", systemImage: "internaldrive")
+            } description: {
+                Text("DevDisk scans file sizes locally. Your files never leave this Mac. This is required only once.")
+            } actions: {
+                Button("Grant Access") {
+                    state.requestMacintoshHDAccess()
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Scan Another Folder…") {
+                    presentsFolderPicker = true
+                }
+            }
         case .idle:
             ContentUnavailableView(
-                "Choose a folder or disk",
+                "Preparing Macintosh HD",
                 systemImage: "externaldrive",
-                description: Text("DevDisk shows directory sizes and recognizes development artifacts.")
+                description: Text("DevDisk is preparing the disk scanner.")
             )
         case let .scanning(progress):
             scanProgressContent(progress, isCancelled: false)
@@ -154,10 +176,16 @@ struct DiskExplorerView: View {
             }
             Spacer()
             if result.skippedItemCount > 0 {
-                Label("\(result.skippedItemCount.formatted()) inaccessible items skipped", systemImage: "exclamationmark.shield")
+                VStack(alignment: .trailing, spacing: 4) {
+                    Label("\(result.skippedItemCount.formatted()) protected items skipped", systemImage: "exclamationmark.shield")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                    Button("Enable Full Disk Access") {
+                        state.openFullDiskAccessSettings()
+                    }
                     .font(.caption)
-                    .foregroundStyle(.orange)
-                    .help("Grant access in System Settings, then scan the disk again.")
+                    .buttonStyle(.link)
+                }
             }
         }
         .padding(12)
@@ -303,14 +331,15 @@ struct DiskExplorerView: View {
     }
 }
 
-#Preview("Empty") {
+#Preview("Access Required") {
     DiskExplorerView(
         state: DiskExplorerViewState(
             scanDisk: ScanDiskUseCase(scanner: StubDiskScanner.preview),
             store: StubDiskScanStore.empty,
             monitor: StubFileChangeMonitor(),
             trashService: StubTrashService(),
-            initialPhase: .idle
+            diskAccessRequester: StubDiskAccessRequester.denied,
+            initialPhase: .accessRequired
         )
     )
 }
@@ -323,6 +352,7 @@ struct DiskExplorerView: View {
             store: StubDiskScanStore.empty,
             monitor: StubFileChangeMonitor(),
             trashService: StubTrashService(),
+            diskAccessRequester: StubDiskAccessRequester.denied,
             initialScannedDirectories: [
                 ScannedDirectory(
                     url: root.appending(path: "Library/Developer/CoreSimulator/Caches"),
@@ -355,6 +385,7 @@ struct DiskExplorerView: View {
             store: StubDiskScanStore.empty,
             monitor: StubFileChangeMonitor(),
             trashService: StubTrashService(),
+            diskAccessRequester: StubDiskAccessRequester.denied,
             initialPhase: .loaded(StubDiskScanner.preview.result)
         )
     )
@@ -368,6 +399,7 @@ struct DiskExplorerView: View {
             store: StubDiskScanStore.empty,
             monitor: StubFileChangeMonitor(),
             trashService: StubTrashService(),
+            diskAccessRequester: StubDiskAccessRequester.denied,
             initialScannedDirectories: [
                 ScannedDirectory(
                     url: root.appending(path: "Library"),
@@ -411,6 +443,7 @@ struct DiskExplorerView: View {
             store: StubDiskScanStore.empty,
             monitor: StubFileChangeMonitor(),
             trashService: StubTrashService(),
+            diskAccessRequester: StubDiskAccessRequester.denied,
             initialPhase: .loaded(
                 DiskScanResult(
                     root: emptyRoot,
@@ -430,6 +463,7 @@ struct DiskExplorerView: View {
             store: StubDiskScanStore.empty,
             monitor: StubFileChangeMonitor(),
             trashService: StubTrashService(),
+            diskAccessRequester: StubDiskAccessRequester.denied,
             initialPhase: .failed(
                 "DevDisk couldn’t read this location. Choose another folder or review its privacy permissions."
             )
