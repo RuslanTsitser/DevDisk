@@ -154,10 +154,13 @@ final class DiskExplorerViewState {
     }
 
     private func recordScannedDirectory(_ directory: ScannedDirectory) {
-        scannedDirectories.removeAll { $0.id == directory.id }
-        scannedDirectories.insert(directory, at: 0)
-        if scannedDirectories.count > 100 {
-            scannedDirectories.removeLast(scannedDirectories.count - 100)
+        if let index = scannedDirectories.firstIndex(where: { $0.id == directory.id }) {
+            scannedDirectories[index] = directory
+        } else {
+            scannedDirectories.append(directory)
+            scannedDirectories.sort {
+                $0.name.localizedStandardCompare($1.name) == .orderedAscending
+            }
         }
     }
 }

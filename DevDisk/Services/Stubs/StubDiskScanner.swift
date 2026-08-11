@@ -18,6 +18,7 @@ struct StubDiskScanner: DiskScanning {
         onDirectoryScanned(
             ScannedDirectory(
                 url: result.root.url,
+                status: .completed,
                 allocatedSize: result.root.allocatedSize,
                 fileCount: result.root.fileCount
             )

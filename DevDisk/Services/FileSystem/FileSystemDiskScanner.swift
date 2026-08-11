@@ -64,11 +64,18 @@ struct FileSystemDiskScanner: DiskScanning {
         let values = try url.resourceValues(forKeys: keys)
         let isDirectory = values.isDirectory == true
         let isSymbolicLink = values.isSymbolicLink == true
+        let isRootChildDirectory = context.isRootChild(url) && isDirectory && !isSymbolicLink
+
+        if isRootChildDirectory {
+            context.reportDirectory(url, status: .scanning)
+        }
 
         if context.shouldExclude(url, values: values) {
+            if isRootChildDirectory { context.reportDirectory(url, status: .skipped) }
             throw TraversalError.excluded
         }
         if !isSymbolicLink, !context.registerIfNew(values) {
+            if isRootChildDirectory { context.reportDirectory(url, status: .skipped) }
             throw TraversalError.excluded
         }
 
@@ -85,11 +92,20 @@ struct FileSystemDiskScanner: DiskScanning {
             )
         }
 
+        let skippedBeforeScan = context.skippedItemCount
         let childURLs = try FileManager.default.contentsOfDirectory(
             at: url,
             includingPropertiesForKeys: Array(keys),
             options: [.skipsPackageDescendants]
-        )
+        ).sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+        if url == context.rootURL {
+            for childURL in childURLs {
+                let childValues = try? childURL.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+                if childValues?.isDirectory == true, childValues?.isSymbolicLink != true {
+                    context.reportDirectory(childURL, status: .waiting)
+                }
+            }
+        }
         let children = try childURLs.compactMap { childURL in
             do {
                 return try scanNode(childURL, context: &context)
@@ -99,6 +115,9 @@ struct FileSystemDiskScanner: DiskScanning {
                 return nil
             } catch {
                 context.recordSkippedItem()
+                if context.isRootChild(childURL) {
+                    context.reportDirectory(childURL, status: .failed(error.localizedDescription))
+                }
                 return nil
             }
         }.sorted { $0.allocatedSize > $1.allocatedSize }
@@ -113,7 +132,18 @@ struct FileSystemDiskScanner: DiskScanning {
             artifact: detector.detect(url: url, isDirectory: true),
             children: children
         )
-        context.reportCompletedDirectory(node)
+        if isRootChildDirectory {
+            let skippedInDirectory = context.skippedItemCount - skippedBeforeScan
+            let status: ScannedDirectory.Status = skippedInDirectory == 0
+                ? .completed
+                : .partial(skippedItemCount: skippedInDirectory)
+            context.reportDirectory(
+                url,
+                status: status,
+                allocatedSize: node.allocatedSize,
+                fileCount: node.fileCount
+            )
+        }
         return node
     }
 
@@ -128,7 +158,6 @@ struct FileSystemDiskScanner: DiskScanning {
         let onDirectoryScanned: ScannedDirectoryHandler
         private(set) var itemsScanned = 0
         private(set) var skippedItemCount = 0
-        private var directoriesCompleted = 0
         private var visitedItems: Set<FileIdentity> = []
 
         init(
@@ -171,16 +200,22 @@ struct FileSystemDiskScanner: DiskScanning {
             skippedItemCount += 1
         }
 
-        mutating func reportCompletedDirectory(_ node: FileNode) {
-            directoriesCompleted += 1
-            guard directoriesCompleted == 1 || directoriesCompleted.isMultiple(of: 25) || node.url == rootURL else {
-                return
-            }
+        func isRootChild(_ url: URL) -> Bool {
+            url.deletingLastPathComponent().standardizedFileURL == rootURL.standardizedFileURL
+        }
+
+        func reportDirectory(
+            _ url: URL,
+            status: ScannedDirectory.Status,
+            allocatedSize: Int64? = nil,
+            fileCount: Int? = nil
+        ) {
             onDirectoryScanned(
                 ScannedDirectory(
-                    url: node.url,
-                    allocatedSize: node.allocatedSize,
-                    fileCount: node.fileCount
+                    url: url,
+                    status: status,
+                    allocatedSize: allocatedSize,
+                    fileCount: fileCount
                 )
             )
         }

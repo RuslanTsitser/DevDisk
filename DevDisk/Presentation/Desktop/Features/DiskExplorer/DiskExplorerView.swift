@@ -115,24 +115,22 @@ struct DiskExplorerView: View {
                         description: Text("Completed directories will appear here while the scan continues.")
                     )
                 } else {
-                    List(state.scannedDirectories) { directory in
-                        HStack(spacing: 10) {
-                            Image(systemName: "folder").foregroundStyle(.blue)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(directory.name).lineLimit(1)
-                                Text(directory.url.path(percentEncoded: false))
-                                    .font(.caption.monospaced())
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
+                    List {
+                        let visibleDirectories = state.scannedDirectories.filter { !$0.isHidden }
+                        let hiddenDirectories = state.scannedDirectories.filter { $0.isHidden }
+                        if !visibleDirectories.isEmpty {
+                            Section("Folders") {
+                                ForEach(visibleDirectories) { directory in
+                                    scannedDirectoryRow(directory)
+                                }
                             }
-                            Spacer()
-                            Text("\(directory.fileCount.formatted()) files")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                            Text(directory.allocatedSize, format: .byteCount(style: .file))
-                                .monospacedDigit()
-                                .frame(minWidth: 90, alignment: .trailing)
+                        }
+                        if !hiddenDirectories.isEmpty {
+                            Section("Hidden Folders") {
+                                ForEach(hiddenDirectories) { directory in
+                                    scannedDirectoryRow(directory)
+                                }
+                            }
                         }
                     }
                 }
@@ -223,6 +221,66 @@ struct DiskExplorerView: View {
             Text(bytes, format: .byteCount(style: .file)).font(.headline).monospacedDigit()
         }
     }
+
+    private func scannedDirectoryRow(_ directory: ScannedDirectory) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: directory.isHidden ? "folder.fill.badge.minus" : "folder")
+                .foregroundStyle(directory.isHidden ? Color.secondary : Color.blue)
+            Text(directory.name)
+                .lineLimit(1)
+            Spacer()
+            directoryStatus(directory)
+                .frame(minWidth: 110, alignment: .leading)
+            if let fileCount = directory.fileCount {
+                Text("\(fileCount.formatted()) files")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .frame(minWidth: 90, alignment: .trailing)
+            }
+            if let allocatedSize = directory.allocatedSize {
+                Text(allocatedSize, format: .byteCount(style: .file))
+                    .monospacedDigit()
+                    .frame(minWidth: 90, alignment: .trailing)
+            } else {
+                Text("—")
+                    .foregroundStyle(.tertiary)
+                    .frame(minWidth: 90, alignment: .trailing)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func directoryStatus(_ directory: ScannedDirectory) -> some View {
+        switch directory.status {
+        case .waiting:
+            Label("Waiting", systemImage: "clock")
+                .foregroundStyle(.secondary)
+        case .scanning:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.mini)
+                Text("Scanning")
+            }
+            .foregroundStyle(.blue)
+        case .completed:
+            Label("Done", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+        case let .partial(skippedItemCount):
+            Label("Partial (\(skippedItemCount))", systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+        case .skipped:
+            Label("Skipped", systemImage: "minus.circle")
+                .foregroundStyle(.secondary)
+        case .failed:
+            Label("Failed", systemImage: "xmark.circle.fill")
+                .foregroundStyle(.red)
+                .help(directoryFailureMessage(directory) ?? "The directory could not be scanned.")
+        }
+    }
+
+    private func directoryFailureMessage(_ directory: ScannedDirectory) -> String? {
+        guard case let .failed(message) = directory.status else { return nil }
+        return message
+    }
 }
 
 #Preview("Empty") {
@@ -248,13 +306,15 @@ struct DiskExplorerView: View {
             initialScannedDirectories: [
                 ScannedDirectory(
                     url: root.appending(path: "Library/Developer/CoreSimulator/Caches"),
+                    status: .completed,
                     allocatedSize: 8_400_000_000,
                     fileCount: 42_310
                 ),
                 ScannedDirectory(
                     url: root.appending(path: "Projects/client-app/node_modules"),
-                    allocatedSize: 2_700_000_000,
-                    fileCount: 18_642
+                    status: .scanning,
+                    allocatedSize: nil,
+                    fileCount: nil
                 )
             ],
             initialPhase: .scanning(

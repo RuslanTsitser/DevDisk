@@ -25,4 +25,51 @@ struct FileSystemDiskScannerTests {
         #expect(result.root.fileCount == 1)
         #expect(result.root.children?.count == 1)
     }
+
+    @Test
+    func reportsStableStatusesOnlyForRootDirectories() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        let visible = root.appending(path: "Visible", directoryHint: .isDirectory)
+        let nested = visible.appending(path: "Nested", directoryHint: .isDirectory)
+        let hidden = root.appending(path: ".hidden", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: hidden, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let updates = LockedUpdates()
+        let scanner = FileSystemDiskScanner(detector: RuleBasedArtifactDetector())
+        _ = try await scanner.scan(
+            root,
+            onProgress: { _ in },
+            onDirectoryScanned: { updates.append($0) }
+        )
+
+        let normalizedVisible = visible.resolvingSymlinksInPath()
+        let normalizedHidden = hidden.resolvingSymlinksInPath()
+        #expect(Set(updates.values.map { $0.url.resolvingSymlinksInPath() }) == Set([normalizedVisible, normalizedHidden]))
+        #expect(
+            updates.values
+                .filter { $0.url.resolvingSymlinksInPath() == normalizedVisible }
+                .map(\.status) == [.waiting, .scanning, .completed]
+        )
+        #expect(
+            updates.values
+                .filter { $0.url.resolvingSymlinksInPath() == normalizedHidden }
+                .map(\.status) == [.waiting, .scanning, .completed]
+        )
+    }
+}
+
+private final class LockedUpdates: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [ScannedDirectory] = []
+
+    var values: [ScannedDirectory] {
+        lock.withLock { storage }
+    }
+
+    func append(_ update: ScannedDirectory) {
+        lock.withLock { storage.append(update) }
+    }
 }
