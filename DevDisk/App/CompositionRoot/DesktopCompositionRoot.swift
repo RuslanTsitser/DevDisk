@@ -4,7 +4,7 @@ enum DesktopCompositionRoot {
         let scanner = FileSystemDiskScanner()
         return DiskExplorerViewState(
             scanDisk: ScanDiskUseCase(scanner: scanner),
-            store: JSONDiskScanStore(),
+            store: SQLiteDiskScanStore(),
             diskAccessRequester: MacOSDiskAccessRequester()
         )
     }

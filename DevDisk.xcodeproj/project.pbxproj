@@ -8,8 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		03569FD940DC9E2F370388EB /* FileNodeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE4C05C596938CB9BBD2275B /* FileNodeTests.swift */; };
-		04E3FDF52F9FF5B0EF4009E5 /* JSONDiskScanStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A5647C8AE4E962B43CD483 /* JSONDiskScanStore.swift */; };
 		167BCF34D7D9BCE74B9F3757 /* DiskScanResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F8D7917D9090D44E2141DFA /* DiskScanResult.swift */; };
+		18E98223B53E5FFB85D4D4EC /* SQLiteDiskScanStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12098C04F2BFDF638EE48B03 /* SQLiteDiskScanStoreTests.swift */; };
+		1AA51C919D3CDD0554B665F3 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = BC7F7D3DA124761646B215F3 /* libsqlite3.tbd */; };
 		371B76293DA2827F8BEEE2C3 /* DesktopCompositionRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = E286ADD8A5B6A030F6CC79BC /* DesktopCompositionRoot.swift */; };
 		3F85BB14EFCBC6D21949F17F /* StubDiskScanStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EDF7C5EF9F1E29EF5010781 /* StubDiskScanStore.swift */; };
 		51DC8470BBCF22582CFD8107 /* ScanProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60F6EA476EB4080EB7840C6 /* ScanProgress.swift */; };
@@ -25,6 +26,7 @@
 		D67EC9144B6AD672286AC6F7 /* DiskExplorerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 215B715AA5867469F70BD2AC /* DiskExplorerView.swift */; };
 		D7ED107605E1EB43C82C7A92 /* DiskScanStoring.swift in Sources */ = {isa = PBXBuildFile; fileRef = 983821BD31FAAB0A3A5E2772 /* DiskScanStoring.swift */; };
 		D88C88650F1A096B9E1E913C /* FileSystemDiskScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8187025103F009A47788D16A /* FileSystemDiskScanner.swift */; };
+		DADE06D1E80D6D7F966C17D3 /* SQLiteDiskScanStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 680C150E2DB52A5D53118621 /* SQLiteDiskScanStore.swift */; };
 		E1512668B2ECDA1DA91CEED1 /* ScanDiskUseCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1587F525B32336BC35E519B /* ScanDiskUseCaseTests.swift */; };
 		E890011F6C1CDE906206EBFE /* FileNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E5ABBA6E78FEDCD06B82699 /* FileNode.swift */; };
 		EACCC0DCA32012E2D5EB1E6B /* DiskExplorerViewState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7AFC290DAC8CDB096663903 /* DiskExplorerViewState.swift */; };
@@ -42,6 +44,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		12098C04F2BFDF638EE48B03 /* SQLiteDiskScanStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLiteDiskScanStoreTests.swift; sourceTree = "<group>"; };
 		161D89C5593F62045B96D3DF /* FileSystemDiskScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemDiskScannerTests.swift; sourceTree = "<group>"; };
 		169B42D71BD434330E644476 /* DevDisk.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DevDisk.entitlements; sourceTree = "<group>"; };
 		1F8D7917D9090D44E2141DFA /* DiskScanResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskScanResult.swift; sourceTree = "<group>"; };
@@ -50,6 +53,7 @@
 		3EDF7C5EF9F1E29EF5010781 /* StubDiskScanStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubDiskScanStore.swift; sourceTree = "<group>"; };
 		42FF8F934908A978385B16FD /* StubDiskAccessRequester.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubDiskAccessRequester.swift; sourceTree = "<group>"; };
 		478D312EA5851F1BF9F6CC25 /* StubDiskScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubDiskScanner.swift; sourceTree = "<group>"; };
+		680C150E2DB52A5D53118621 /* SQLiteDiskScanStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLiteDiskScanStore.swift; sourceTree = "<group>"; };
 		74AE8A6F0AC4C15C2893CA9B /* DiskAccessRequesting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskAccessRequesting.swift; sourceTree = "<group>"; };
 		7C2A6CB15234C66E7A2DE1F3 /* ScanDiskUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanDiskUseCase.swift; sourceTree = "<group>"; };
 		7FC1474DE2ABF534971A5674 /* DiskScanning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskScanning.swift; sourceTree = "<group>"; };
@@ -59,8 +63,8 @@
 		8E5ABBA6E78FEDCD06B82699 /* FileNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileNode.swift; sourceTree = "<group>"; };
 		978CE70772CB7F6D5508266D /* DesktopApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopApp.swift; sourceTree = "<group>"; };
 		983821BD31FAAB0A3A5E2772 /* DiskScanStoring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskScanStoring.swift; sourceTree = "<group>"; };
-		A0A5647C8AE4E962B43CD483 /* JSONDiskScanStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONDiskScanStore.swift; sourceTree = "<group>"; };
 		A4C80EEFAC6CEA490BC414A1 /* ScannedDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannedDirectory.swift; sourceTree = "<group>"; };
+		BC7F7D3DA124761646B215F3 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
 		D60F6EA476EB4080EB7840C6 /* ScanProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanProgress.swift; sourceTree = "<group>"; };
 		DB02AEA89B75D8F992A26562 /* DevDiskTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DevDiskTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E286ADD8A5B6A030F6CC79BC /* DesktopCompositionRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopCompositionRoot.swift; sourceTree = "<group>"; };
@@ -68,6 +72,17 @@
 		F1587F525B32336BC35E519B /* ScanDiskUseCaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanDiskUseCaseTests.swift; sourceTree = "<group>"; };
 		F7AFC290DAC8CDB096663903 /* DiskExplorerViewState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskExplorerViewState.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AE915F3F32CB4B8ACB78BE25 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1AA51C919D3CDD0554B665F3 /* libsqlite3.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		1022840083C6ACBA70B3FBB4 /* Desktop */ = {
@@ -131,7 +146,7 @@
 		5E9D0D347FD3065E10752167 /* Persistence */ = {
 			isa = PBXGroup;
 			children = (
-				A0A5647C8AE4E962B43CD483 /* JSONDiskScanStore.swift */,
+				680C150E2DB52A5D53118621 /* SQLiteDiskScanStore.swift */,
 			);
 			path = Persistence;
 			sourceTree = "<group>";
@@ -168,6 +183,14 @@
 				F7AFC290DAC8CDB096663903 /* DiskExplorerViewState.swift */,
 			);
 			path = DiskExplorer;
+			sourceTree = "<group>";
+		};
+		AA375333105A4F6B05FBB460 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				BC7F7D3DA124761646B215F3 /* libsqlite3.tbd */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		BB2AE584A8C5266F0CB6F420 /* Models */ = {
@@ -241,6 +264,7 @@
 			children = (
 				2C08146E5760BFF43CA6D9C2 /* DevDisk */,
 				5A77535B950C4B71CE69017E /* DevDiskTests */,
+				AA375333105A4F6B05FBB460 /* Frameworks */,
 				83E69242C58D36D3DB7E73A2 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -249,6 +273,7 @@
 			isa = PBXGroup;
 			children = (
 				161D89C5593F62045B96D3DF /* FileSystemDiskScannerTests.swift */,
+				12098C04F2BFDF638EE48B03 /* SQLiteDiskScanStoreTests.swift */,
 			);
 			path = ServiceTests;
 			sourceTree = "<group>";
@@ -261,6 +286,7 @@
 			buildConfigurationList = 1D4D53900E791E44FA3334D1 /* Build configuration list for PBXNativeTarget "DevDisk" */;
 			buildPhases = (
 				3660E51602AFD52C4EDBE38D /* Sources */,
+				AE915F3F32CB4B8ACB78BE25 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -337,8 +363,8 @@
 				D26A90BFE5B6B1351634E7ED /* DiskScanning.swift in Sources */,
 				E890011F6C1CDE906206EBFE /* FileNode.swift in Sources */,
 				D88C88650F1A096B9E1E913C /* FileSystemDiskScanner.swift in Sources */,
-				04E3FDF52F9FF5B0EF4009E5 /* JSONDiskScanStore.swift in Sources */,
 				B93935FEDB2391A1DA3B42B3 /* MacOSDiskAccessRequester.swift in Sources */,
+				DADE06D1E80D6D7F966C17D3 /* SQLiteDiskScanStore.swift in Sources */,
 				D092D0D086AF1E88512A762D /* SavedDiskScan.swift in Sources */,
 				C0CB65BD8AD1943988E7E5E3 /* ScanDiskUseCase.swift in Sources */,
 				51DC8470BBCF22582CFD8107 /* ScanProgress.swift in Sources */,
@@ -355,6 +381,7 @@
 			files = (
 				03569FD940DC9E2F370388EB /* FileNodeTests.swift in Sources */,
 				B6B527A1E494E6ECC32A84C5 /* FileSystemDiskScannerTests.swift in Sources */,
+				18E98223B53E5FFB85D4D4EC /* SQLiteDiskScanStoreTests.swift in Sources */,
 				E1512668B2ECDA1DA91CEED1 /* ScanDiskUseCaseTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -13,6 +13,8 @@ targets:
     platform: macOS
     sources:
       - path: DevDisk
+    dependencies:
+      - sdk: libsqlite3.tbd
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.devdisk.app
