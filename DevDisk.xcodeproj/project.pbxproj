@@ -21,6 +21,7 @@
 		860BE27CCF9918C1D8896830 /* ArtifactDetecting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1368B0795E54339592960D8B /* ArtifactDetecting.swift */; };
 		A1A884C872BC223D3B7058D5 /* StubFileChangeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEC7446AD53EE6A0D41A2BEE /* StubFileChangeMonitor.swift */; };
 		B1A114F0FBB3597BF4DC546B /* DesktopApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 978CE70772CB7F6D5508266D /* DesktopApp.swift */; };
+		B6B527A1E494E6ECC32A84C5 /* FileSystemDiskScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 161D89C5593F62045B96D3DF /* FileSystemDiskScannerTests.swift */; };
 		BF2588CA0739E4E80C90E4C0 /* FSEventsFileChangeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79796D45109A6EA2FC8BA923 /* FSEventsFileChangeMonitor.swift */; };
 		C0CB65BD8AD1943988E7E5E3 /* ScanDiskUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C2A6CB15234C66E7A2DE1F3 /* ScanDiskUseCase.swift */; };
 		C8FAE9F0E3B02BE4E2B562C0 /* StubTrashService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4090362F835F1B1E7B61AC /* StubTrashService.swift */; };
@@ -51,6 +52,7 @@
 
 /* Begin PBXFileReference section */
 		1368B0795E54339592960D8B /* ArtifactDetecting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtifactDetecting.swift; sourceTree = "<group>"; };
+		161D89C5593F62045B96D3DF /* FileSystemDiskScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemDiskScannerTests.swift; sourceTree = "<group>"; };
 		169B42D71BD434330E644476 /* DevDisk.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DevDisk.entitlements; sourceTree = "<group>"; };
 		1F8D7917D9090D44E2141DFA /* DiskScanResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskScanResult.swift; sourceTree = "<group>"; };
 		215B715AA5867469F70BD2AC /* DiskExplorerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskExplorerView.swift; sourceTree = "<group>"; };
@@ -280,6 +282,7 @@
 		F2A6B6F8813A0700E62A68A1 /* ServiceTests */ = {
 			isa = PBXGroup;
 			children = (
+				161D89C5593F62045B96D3DF /* FileSystemDiskScannerTests.swift */,
 				DD1463FCD2A71C140D2DBC2D /* RuleBasedArtifactDetectorTests.swift */,
 			);
 			path = ServiceTests;
@@ -394,6 +397,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				03569FD940DC9E2F370388EB /* FileNodeTests.swift in Sources */,
+				B6B527A1E494E6ECC32A84C5 /* FileSystemDiskScannerTests.swift in Sources */,
 				692C35906F9189FB8DD6819F /* RuleBasedArtifactDetectorTests.swift in Sources */,
 				E1512668B2ECDA1DA91CEED1 /* ScanDiskUseCaseTests.swift in Sources */,
 			);

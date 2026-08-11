@@ -20,8 +20,10 @@ struct FileSystemDiskScanner: DiskScanning {
         }
 
         let worker = Task.detached(priority: .userInitiated) {
+            let rootVolumeURL = try? root.resourceValues(forKeys: [.volumeURLKey]).volume
             var context = ScanContext(
                 rootURL: root,
+                rootVolumeURL: rootVolumeURL,
                 onProgress: onProgress,
                 onDirectoryScanned: onDirectoryScanned
             )
@@ -54,11 +56,21 @@ struct FileSystemDiskScanner: DiskScanning {
             .isDirectoryKey,
             .isSymbolicLinkKey,
             .fileSizeKey,
-            .fileAllocatedSizeKey
+            .fileAllocatedSizeKey,
+            .fileResourceIdentifierKey,
+            .volumeIdentifierKey,
+            .volumeURLKey
         ]
         let values = try url.resourceValues(forKeys: keys)
         let isDirectory = values.isDirectory == true
         let isSymbolicLink = values.isSymbolicLink == true
+
+        if context.shouldExclude(url, values: values) {
+            throw TraversalError.excluded
+        }
+        if !isSymbolicLink, !context.registerIfNew(values) {
+            throw TraversalError.excluded
+        }
 
         guard isDirectory, !isSymbolicLink else {
             return FileNode(
@@ -83,6 +95,8 @@ struct FileSystemDiskScanner: DiskScanning {
                 return try scanNode(childURL, context: &context)
             } catch let error as CancellationError {
                 throw error
+            } catch TraversalError.excluded {
+                return nil
             } catch {
                 context.recordSkippedItem()
                 return nil
@@ -103,22 +117,54 @@ struct FileSystemDiskScanner: DiskScanning {
         return node
     }
 
+    private enum TraversalError: Error {
+        case excluded
+    }
+
     private struct ScanContext {
         let rootURL: URL
+        let rootVolumeURL: URL?
         let onProgress: DiskScanProgressHandler
         let onDirectoryScanned: ScannedDirectoryHandler
         private(set) var itemsScanned = 0
         private(set) var skippedItemCount = 0
         private var directoriesCompleted = 0
+        private var visitedItems: Set<FileIdentity> = []
 
         init(
             rootURL: URL,
+            rootVolumeURL: URL?,
             onProgress: @escaping DiskScanProgressHandler,
             onDirectoryScanned: @escaping ScannedDirectoryHandler
         ) {
             self.rootURL = rootURL
+            self.rootVolumeURL = rootVolumeURL
             self.onProgress = onProgress
             self.onDirectoryScanned = onDirectoryScanned
+        }
+
+        func shouldExclude(_ url: URL, values: URLResourceValues) -> Bool {
+            guard url != rootURL else { return false }
+
+            if rootURL.path == "/" {
+                if url.path == "/.nofollow" || url.path == "/System/Volumes/Data" {
+                    return true
+                }
+            }
+
+            guard let rootVolumeURL, let itemVolumeURL = values.volume else { return false }
+            let standardizedItemVolume = itemVolumeURL.standardizedFileURL
+            return standardizedItemVolume != rootVolumeURL.standardizedFileURL
+                && url.standardizedFileURL == standardizedItemVolume
+        }
+
+        mutating func registerIfNew(_ values: URLResourceValues) -> Bool {
+            guard let fileIdentifier = values.fileResourceIdentifier else { return true }
+            let identity = FileIdentity(
+                volume: String(reflecting: values.volumeIdentifier),
+                file: String(reflecting: fileIdentifier)
+            )
+            return visitedItems.insert(identity).inserted
         }
 
         mutating func recordSkippedItem() {
@@ -156,5 +202,10 @@ struct FileSystemDiskScanner: DiskScanning {
                 )
             )
         }
+    }
+
+    private struct FileIdentity: Hashable {
+        let volume: String
+        let file: String
     }
 }
