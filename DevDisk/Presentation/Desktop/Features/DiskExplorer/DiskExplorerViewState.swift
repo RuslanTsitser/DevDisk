@@ -7,6 +7,7 @@ import Observation
 final class DiskExplorerViewState {
     enum Phase: Equatable {
         case idle
+        case restoring
         case scanning(ScanProgress)
         case stopped(ScanProgress)
         case loaded(DiskScanResult)
@@ -78,6 +79,7 @@ final class DiskExplorerViewState {
         guard !didRestore else { return }
         didRestore = true
         guard case .idle = phase else { return }
+        phase = .restoring
 
         let store = store
         Task { [weak self] in
@@ -87,11 +89,15 @@ final class DiskExplorerViewState {
                     try store.load()
                 }.value
             } catch {
-                guard let self, case .idle = phase else { return }
+                guard let self, case .restoring = phase else { return }
                 phase = .failed("The saved scan could not be loaded: \(error.localizedDescription)")
                 return
             }
-            guard let self, let saved, case .idle = phase else { return }
+            guard let self, case .restoring = phase else { return }
+            guard let saved else {
+                phase = .idle
+                return
+            }
             phase = .loaded(saved.result)
             scannedAt = saved.scannedAt
             navigationPath = [saved.result.root.url]
@@ -167,7 +173,7 @@ final class DiskExplorerViewState {
                 )
             }
             return sorted(Array(itemsByURL.values))
-        case .idle, .failed:
+        case .idle, .restoring, .failed:
             return []
         }
     }
@@ -367,7 +373,7 @@ final class DiskExplorerViewState {
         case let .scanning(progress): progress.rootURL
         case let .stopped(progress): progress.rootURL
         case let .loaded(result): result.root.url
-        case .idle, .failed: nil
+        case .idle, .restoring, .failed: nil
         }
     }
 }

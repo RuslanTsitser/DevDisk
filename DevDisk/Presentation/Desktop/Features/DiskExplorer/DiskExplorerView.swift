@@ -50,7 +50,10 @@ struct DiskExplorerView: View {
             Text("DevDisk")
                 .font(.headline)
             Spacer()
-            if isScanning {
+            if isRestoring {
+                ProgressView()
+                    .controlSize(.small)
+            } else if isScanning {
                 Button("Stop Scan", systemImage: "stop.fill", role: .cancel) {
                     state.stopScan()
                 }
@@ -73,6 +76,17 @@ struct DiskExplorerView: View {
     @ViewBuilder
     private var content: some View {
         switch state.phase {
+        case .restoring:
+            VStack(spacing: 14) {
+                ProgressView()
+                    .controlSize(.large)
+                Text("Loading Last Scan")
+                    .font(.headline)
+                Text("Restoring the saved disk contents…")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .idle:
             ContentUnavailableView {
                 Label("See What Uses Your Disk", systemImage: "internaldrive")
@@ -333,6 +347,11 @@ struct DiskExplorerView: View {
 
     private var isScanning: Bool {
         if case .scanning = state.phase { return true }
+        return false
+    }
+
+    private var isRestoring: Bool {
+        if case .restoring = state.phase { return true }
         return false
     }
 
