@@ -10,4 +10,5 @@ fastlane/test_output/
 fastlane/keys/
 fastlane/api_key.json
 fastlane/service-account*.json
+fastlane/.env
 *.p8
