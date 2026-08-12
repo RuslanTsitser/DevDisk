@@ -31,6 +31,14 @@ Generate the Xcode project and run the macOS test suite
 
 Validate the local Fastlane metadata and screenshot layout without a store API call
 
+### mac upload_store_content
+
+```sh
+[bundle exec] fastlane mac upload_store_content
+```
+
+Upload macOS metadata and screenshots to App Store Connect
+
 ----
 
 This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.
