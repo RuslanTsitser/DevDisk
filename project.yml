@@ -19,8 +19,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tsitser.devdisk
         PRODUCT_NAME: DevDisk
-        MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "2026081122"
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
         DEVELOPMENT_TEAM: XPQN3KYX5Z
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: YES

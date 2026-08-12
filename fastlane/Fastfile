@@ -46,8 +46,7 @@ platform :mac do
     end
   end
 
-  desc "Generate the Xcode project and run the macOS test suite"
-  lane :verify do
+  private_lane :verify do
     Dir.chdir(project_root) do
       sh("xcodegen generate")
       sh(
@@ -62,8 +61,7 @@ platform :mac do
     end
   end
 
-  desc "Validate the local Fastlane metadata and screenshot layout without a store API call"
-  lane :validate_store_content do
+  private_lane :validate_metadata do
     required_localized_files = %w[
       name.txt
       subtitle.txt
@@ -99,6 +97,9 @@ platform :mac do
       UI.user_error!("#{name} must contain an HTTPS URL") unless value.start_with?("https://")
     end
 
+  end
+
+  private_lane :validate_screenshots do
     screenshots = Dir[File.expand_path("screenshots/en-US/*.{png,jpg,jpeg}", __dir__)].sort
     UI.user_error!("Add at least one en-US screenshot") if screenshots.empty?
     UI.user_error!("App Store Connect accepts at most 10 screenshots") if screenshots.length > 10
@@ -114,44 +115,61 @@ platform :mac do
       UI.user_error!("Unsupported Mac screenshot size #{width}x#{height}: #{path}") unless accepted_sizes.include?([width, height])
       UI.user_error!("App Store screenshots cannot contain alpha: #{path}") unless has_alpha == "no"
     end
-    UI.success("Fastlane metadata and App Store screenshots are valid")
+    UI.success("Fastlane screenshots are valid")
   end
 
-  desc "Upload macOS metadata and screenshots to App Store Connect"
-  lane :upload_store_content do |options|
+  desc "Upload only macOS metadata to App Store Connect"
+  lane :upload_metadata do
     api_key = app_store_connect_credentials
     prepare_deliver
-
-    validate_store_content
-
-    upload_screenshots = options.fetch(:screenshots, true).to_s != "false"
+    validate_metadata
 
     upload_to_app_store(
       api_key: api_key,
       app_identifier: ENV.fetch("DEVDISK_APP_IDENTIFIER", "com.tsitser.devdisk"),
-      app_version: ENV.fetch("DEVDISK_APP_VERSION", "1.0"),
+      app_version: ENV.fetch("DEVDISK_APP_VERSION", "1.0.0"),
       platform: "osx",
       metadata_path: File.expand_path("metadata", __dir__),
       screenshots_path: File.expand_path("screenshots", __dir__),
       skip_binary_upload: true,
       skip_metadata: false,
-      skip_screenshots: !upload_screenshots,
-      overwrite_screenshots: upload_screenshots,
+      skip_screenshots: true,
+      overwrite_screenshots: false,
       run_precheck_before_submit: false,
       submit_for_review: false,
       force: true
     )
   end
 
-  desc "Verify, build a signed Mac App Store package, and upload the binary and metadata"
-  lane :deploy do |options|
+  desc "Upload only macOS screenshots to App Store Connect"
+  lane :upload_screenshots do
     api_key = app_store_connect_credentials
     prepare_deliver
-    validate_store_content
+    validate_screenshots
+
+    upload_to_app_store(
+      api_key: api_key,
+      app_identifier: ENV.fetch("DEVDISK_APP_IDENTIFIER", "com.tsitser.devdisk"),
+      app_version: ENV.fetch("DEVDISK_APP_VERSION", "1.0.0"),
+      platform: "osx",
+      screenshots_path: File.expand_path("screenshots", __dir__),
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_screenshots: false,
+      overwrite_screenshots: true,
+      run_precheck_before_submit: false,
+      submit_for_review: false,
+      force: true
+    )
+  end
+
+  desc "Build and upload only the signed Mac App Store binary"
+  lane :deploy do |options|
+    api_key = app_store_connect_credentials
     verify
 
     app_identifier = ENV.fetch("DEVDISK_APP_IDENTIFIER", "com.tsitser.devdisk")
-    app_version = options.fetch(:version, ENV.fetch("DEVDISK_APP_VERSION", "1.0")).to_s
+    app_version = options.fetch(:version, ENV.fetch("DEVDISK_APP_VERSION", "1.0.0")).to_s
     team_id = ENV.fetch("APPLE_TEAM_ID", "XPQN3KYX5Z")
     UI.user_error!("version must be a numeric dotted version") unless app_version.match?(/\A\d+(?:\.\d+){0,2}\z/)
     UI.user_error!("APPLE_TEAM_ID must be a 10-character team identifier") unless team_id.match?(/\A[A-Z0-9]{10}\z/)
@@ -198,22 +216,18 @@ platform :mac do
     )
     UI.user_error!("Fastlane did not produce a .pkg: #{pkg_path}") unless pkg_path&.end_with?(".pkg") && File.file?(pkg_path)
 
-    upload_screenshots = options.fetch(:screenshots, false).to_s == "true"
-    submit_for_review = options.fetch(:submit, false).to_s == "true"
     upload_to_app_store(
       api_key: api_key,
       app_identifier: app_identifier,
       app_version: app_version,
       platform: "osx",
       pkg: pkg_path,
-      metadata_path: File.expand_path("metadata", __dir__),
-      screenshots_path: File.expand_path("screenshots", __dir__),
       skip_binary_upload: false,
-      skip_metadata: false,
-      skip_screenshots: !upload_screenshots,
-      overwrite_screenshots: upload_screenshots,
+      skip_metadata: true,
+      skip_screenshots: true,
+      overwrite_screenshots: false,
       run_precheck_before_submit: false,
-      submit_for_review: submit_for_review,
+      submit_for_review: false,
       force: true
     )
   end

@@ -15,29 +15,21 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 ## Mac
 
-### mac verify
+### mac upload_metadata
 
 ```sh
-[bundle exec] fastlane mac verify
+[bundle exec] fastlane mac upload_metadata
 ```
 
-Generate the Xcode project and run the macOS test suite
+Upload only macOS metadata to App Store Connect
 
-### mac validate_store_content
+### mac upload_screenshots
 
 ```sh
-[bundle exec] fastlane mac validate_store_content
+[bundle exec] fastlane mac upload_screenshots
 ```
 
-Validate the local Fastlane metadata and screenshot layout without a store API call
-
-### mac upload_store_content
-
-```sh
-[bundle exec] fastlane mac upload_store_content
-```
-
-Upload macOS metadata and screenshots to App Store Connect
+Upload only macOS screenshots to App Store Connect
 
 ### mac deploy
 
@@ -45,7 +37,7 @@ Upload macOS metadata and screenshots to App Store Connect
 [bundle exec] fastlane mac deploy
 ```
 
-Verify, build a signed Mac App Store package, and upload the binary and metadata
+Build and upload only the signed Mac App Store binary
 
 ----
 
