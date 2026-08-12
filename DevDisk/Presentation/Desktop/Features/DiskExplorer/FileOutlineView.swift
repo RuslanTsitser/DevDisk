@@ -10,7 +10,9 @@ struct FileOutlineView: NSViewRepresentable {
     let riskFilter: ArtifactRisk?
     let artifactKindFilter: String?
     let directoryStatuses: [URL: ScannedDirectory.Status]
+    @Binding var isFiltering: Bool
     @Binding var selectedURL: URL?
+    let requestCleanup: (DeveloperArtifact) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
 
@@ -29,7 +31,8 @@ struct FileOutlineView: NSViewRepresentable {
             ("logical", "Logical", 100),
             ("files", "Files", 70),
             ("modified", "Modified", 120),
-            ("growth", "Growth", 100)
+            ("growth", "Growth", 100),
+            ("cleanup", "", 34)
         ]
         for value in columns {
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(value.0))
@@ -71,6 +74,7 @@ struct FileOutlineView: NSViewRepresentable {
         private var rebuildTask: Task<Void, Never>?
         private var expansionTasks: [URL: Task<Void, Never>] = [:]
         private var expandedURLs: Set<URL> = []
+        private var rebuildGeneration = UUID()
 
         init(parent: FileOutlineView) {
             self.parent = parent
@@ -86,6 +90,11 @@ struct FileOutlineView: NSViewRepresentable {
             let configuration = configuration(for: parent)
             let root = parent.root
             let selectedURL = parent.selectedURL
+            let generation = UUID()
+            rebuildGeneration = generation
+            Task { @MainActor in
+                parent.isFiltering = configuration.hasActiveFilters
+            }
             rebuildTask = Task { [weak self] in
                 let worker = Task.detached(priority: .userInitiated) {
                     OutlineTreeBuilder.makeItem(root, configuration: configuration)
@@ -96,6 +105,9 @@ struct FileOutlineView: NSViewRepresentable {
                     worker.cancel()
                 }
                 guard let self, !Task.isCancelled else { return }
+                if rebuildGeneration == generation {
+                    self.parent.isFiltering = false
+                }
                 captureExpandedURLs()
                 rootItem = value
                 outlineView?.reloadData()
@@ -163,6 +175,9 @@ struct FileOutlineView: NSViewRepresentable {
                 cell.imageView?.image = statusIcon(for: node)
                 cell.imageView?.imageScaling = .scaleProportionallyDown
                 cell.textField?.stringValue = node.name
+                (cell as? NameTableCellView)?.setTags(
+                    ecosystems(for: node).map(\.title).sorted()
+                )
                 if let artifact = parent.artifacts[node.url] {
                     cell.textField?.toolTip = "\(artifact.artifactKind) · \(artifact.risk.title)"
                     cell.textField?.textColor = .controlAccentColor
@@ -203,6 +218,20 @@ struct FileOutlineView: NSViewRepresentable {
                     cell.textField?.stringValue = "New"
                     cell.textField?.textColor = .secondaryLabelColor
                 }
+            case "cleanup":
+                guard let button = cell.subviews.compactMap({ $0 as? CleanupButton }).first else { break }
+                if let artifact = parent.artifacts[node.url],
+                   artifact.cleanupPolicy == .safeRebuildable,
+                   node.isDirectory {
+                    button.isHidden = false
+                    button.toolTip = "Clean up \(node.name)"
+                    button.target = self
+                    button.action = #selector(cleanupSelectedArtifact(_:))
+                    button.artifactURL = artifact.url
+                } else {
+                    button.isHidden = true
+                    button.artifactURL = nil
+                }
             default: break
             }
             return cell
@@ -228,7 +257,22 @@ struct FileOutlineView: NSViewRepresentable {
         }
 
         private func makeCell(identifier: NSUserInterfaceItemIdentifier) -> NSTableCellView {
-            let cell = NSTableCellView()
+            if identifier.rawValue == "cleanup" {
+                let cell = NSTableCellView()
+                cell.identifier = identifier
+                let button = CleanupButton(image: NSImage(systemSymbolName: "trash", accessibilityDescription: "Clean Up")!, target: nil, action: nil)
+                button.bezelStyle = .inline
+                button.isBordered = false
+                button.contentTintColor = .systemRed
+                button.translatesAutoresizingMaskIntoConstraints = false
+                cell.addSubview(button)
+                NSLayoutConstraint.activate([
+                    button.centerXAnchor.constraint(equalTo: cell.centerXAnchor),
+                    button.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
+                ])
+                return cell
+            }
+            let cell: NSTableCellView = identifier.rawValue == "name" ? NameTableCellView() : NSTableCellView()
             cell.identifier = identifier
             let text = NSTextField(labelWithString: "")
             text.lineBreakMode = .byTruncatingMiddle
@@ -256,6 +300,21 @@ struct FileOutlineView: NSViewRepresentable {
                 text.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
             ])
             return cell
+        }
+
+        @objc private func cleanupSelectedArtifact(_ sender: CleanupButton) {
+            guard let url = sender.artifactURL,
+                  let artifact = parent.artifacts[url]
+            else { return }
+            parent.requestCleanup(artifact)
+        }
+
+        private func ecosystems(for node: FileNode) -> Set<DeveloperEcosystem> {
+            var values = parent.artifacts[node.url]?.ecosystems ?? []
+            if let project = parent.artifacts.values.first(where: { $0.project?.rootURL == node.url })?.project {
+                values.formUnion(project.ecosystems)
+            }
+            return values
         }
 
         private func row(for url: URL) -> Int? {
@@ -316,6 +375,48 @@ struct FileOutlineView: NSViewRepresentable {
             }
             return image
         }
+    }
+}
+
+private final class CleanupButton: NSButton {
+    var artifactURL: URL?
+}
+
+private final class NameTableCellView: NSTableCellView {
+    private let tags = NSTextField(labelWithString: "")
+    private var textToTagsConstraint: NSLayoutConstraint?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        tags.font = .systemFont(ofSize: 10, weight: .medium)
+        tags.textColor = .secondaryLabelColor
+        tags.wantsLayer = true
+        tags.layer?.backgroundColor = NSColor.quaternaryLabelColor.cgColor
+        tags.layer?.cornerRadius = 7
+        tags.translatesAutoresizingMaskIntoConstraints = false
+        tags.isHidden = true
+        addSubview(tags)
+        NSLayoutConstraint.activate([
+            tags.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            tags.centerYAnchor.constraint(equalTo: centerYAnchor),
+            tags.heightAnchor.constraint(equalToConstant: 16)
+        ])
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    func setTags(_ values: [String]) {
+        tags.stringValue = values.joined(separator: " · ")
+        tags.isHidden = values.isEmpty
+        tags.sizeToFit()
+        tags.alignment = .center
+        tags.cell?.setAccessibilityLabel(values.joined(separator: ", "))
+        textToTagsConstraint?.isActive = false
+        textToTagsConstraint = textField?.trailingAnchor.constraint(
+            lessThanOrEqualTo: values.isEmpty ? trailingAnchor : tags.leadingAnchor,
+            constant: -6
+        )
+        textToTagsConstraint?.isActive = true
     }
 }
 

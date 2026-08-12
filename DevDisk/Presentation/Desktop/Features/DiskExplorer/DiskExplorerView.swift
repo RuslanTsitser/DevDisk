@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DiskExplorerView: View {
     @State private var state: DiskExplorerViewState
+    @State private var isFilteringTree = false
 
     init(state: DiskExplorerViewState) {
         _state = State(initialValue: state)
@@ -55,6 +56,11 @@ struct DiskExplorerView: View {
                 ecosystemPicker
                 riskPicker
                 artifactTypePicker
+                if isFilteringTree {
+                    ProgressView()
+                        .controlSize(.small)
+                        .help("Updating filtered results")
+                }
             }
             Spacer()
             if !state.insights.artifacts.isEmpty {
@@ -160,10 +166,12 @@ struct DiskExplorerView: View {
                         riskFilter: state.riskFilter,
                         artifactKindFilter: state.artifactKindFilter,
                         directoryStatuses: state.visibleDirectoryStatuses,
+                        isFiltering: $isFilteringTree,
                         selectedURL: Binding(
                             get: { state.selectedURL },
                             set: { value in state.select(value) }
-                        )
+                        ),
+                        requestCleanup: { artifact in state.requestDeletion(of: artifact) }
                     )
                     .frame(minWidth: 700)
                     insightsPane
@@ -178,7 +186,16 @@ struct DiskExplorerView: View {
     private var insightsPane: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Label("Developer Insights", systemImage: "hammer.fill").font(.title3.bold())
+                HStack {
+                    if state.selectedURL != nil {
+                        Button("Back", systemImage: "chevron.left") {
+                            state.select(nil)
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Back to Developer Insights summary")
+                    }
+                    Label("Developer Insights", systemImage: "hammer.fill").font(.title3.bold())
+                }
                 if let artifact = state.selectedArtifact {
                     artifactDetails(artifact)
                 } else if let node = state.selectedNode {
