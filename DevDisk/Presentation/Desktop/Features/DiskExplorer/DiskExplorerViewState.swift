@@ -5,6 +5,11 @@ import Observation
 @MainActor
 @Observable
 final class DiskExplorerViewState {
+    enum InsightFilter: Equatable {
+        case artifact(URL)
+        case project(URL)
+    }
+
     enum Phase: Equatable {
         case idle
         case restoring
@@ -40,10 +45,10 @@ final class DiskExplorerViewState {
     private(set) var previousDirectorySizes: [String: DirectorySizeSnapshot] = [:]
     private(set) var previousCategorySizes: [String: CategorySizeSnapshot] = [:]
     private(set) var selectedURL: URL?
-    var searchQuery = ""
     var ecosystemFilter: DeveloperEcosystem?
     var riskFilter: ArtifactRisk?
     var artifactKindFilter: String?
+    private(set) var insightFilter: InsightFilter?
 
     private let scanDisk: ScanDiskUseCase
     private let store: any DiskScanStoring
@@ -318,18 +323,20 @@ final class DiskExplorerViewState {
     }
 
     var filteredInsights: DeveloperInsights {
-        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty || ecosystemFilter != nil || riskFilter != nil || artifactKindFilter != nil else {
+        guard ecosystemFilter != nil || riskFilter != nil || artifactKindFilter != nil || insightFilter != nil else {
             return insights
         }
         let artifacts = insights.artifacts.filter { artifact in
-            let matchesQuery = query.isEmpty
-                || artifact.name.localizedCaseInsensitiveContains(query)
-                || artifact.url.path.localizedCaseInsensitiveContains(query)
             let matchesEcosystem = ecosystemFilter.map { artifact.ecosystems.contains($0) } ?? true
             let matchesRisk = riskFilter.map { artifact.risk == $0 } ?? true
             let matchesKind = artifactKindFilter.map { artifact.artifactKind == $0 } ?? true
-            return matchesQuery && matchesEcosystem && matchesRisk && matchesKind
+            let matchesInsight: Bool
+            switch insightFilter {
+            case let .artifact(url): matchesInsight = artifact.url == url
+            case let .project(rootURL): matchesInsight = artifact.project?.rootURL == rootURL
+            case nil: matchesInsight = true
+            }
+            return matchesEcosystem && matchesRisk && matchesKind && matchesInsight
         }
         let projectURLs = Set(artifacts.compactMap { $0.project?.rootURL })
         return DeveloperInsights(
@@ -339,10 +346,53 @@ final class DiskExplorerViewState {
     }
 
     var hasActiveFilters: Bool {
-        !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || ecosystemFilter != nil
+        ecosystemFilter != nil
             || riskFilter != nil
             || artifactKindFilter != nil
+            || insightFilter != nil
+    }
+
+    func clearFilters() {
+        ecosystemFilter = nil
+        riskFilter = nil
+        artifactKindFilter = nil
+        insightFilter = nil
+        selectedURL = nil
+    }
+
+    func toggleArtifactFilter(_ artifact: DeveloperArtifact) {
+        let filter = InsightFilter.artifact(artifact.url)
+        insightFilter = insightFilter == filter ? nil : filter
+        selectedURL = nil
+    }
+
+    func toggleProjectFilter(rootURL: URL) {
+        let filter = InsightFilter.project(rootURL)
+        insightFilter = insightFilter == filter ? nil : filter
+        selectedURL = nil
+    }
+
+    var filteredArtifactURLs: Set<URL>? {
+        guard insightFilter != nil else { return nil }
+        return Set(filteredInsights.artifacts.map(\.url))
+    }
+
+    func toggleEcosystemFilter(_ value: DeveloperEcosystem) {
+        let newValue = ecosystemFilter == value ? nil : value
+        clearFilters()
+        ecosystemFilter = newValue
+    }
+
+    func toggleRiskFilter(_ value: ArtifactRisk) {
+        let newValue = riskFilter == value ? nil : value
+        clearFilters()
+        riskFilter = newValue
+    }
+
+    func toggleArtifactKindFilter(_ value: String) {
+        let newValue = artifactKindFilter == value ? nil : value
+        clearFilters()
+        artifactKindFilter = newValue
     }
 
     func select(_ url: URL?) {

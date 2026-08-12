@@ -5,11 +5,13 @@ struct FileOutlineView: NSViewRepresentable {
     let root: FileNode
     let artifacts: [URL: DeveloperArtifact]
     let previousSizes: [String: DirectorySizeSnapshot]
-    let searchQuery: String
     let ecosystemFilter: DeveloperEcosystem?
     let riskFilter: ArtifactRisk?
     let artifactKindFilter: String?
+    let allowedArtifactURLs: Set<URL>?
     let directoryStatuses: [URL: ScannedDirectory.Status]
+    let expansionRequest: Int
+    let shouldExpandAll: Bool
     @Binding var isFiltering: Bool
     @Binding var selectedURL: URL?
     let requestCleanup: (DeveloperArtifact) -> Void
@@ -77,6 +79,7 @@ struct FileOutlineView: NSViewRepresentable {
         private var renderedRoot: FileNode?
         private var renderedConfiguration: OutlineBuildConfiguration?
         private var renderedDirectoryStatuses: [URL: ScannedDirectory.Status] = [:]
+        private var handledExpansionRequest = 0
 
         init(parent: FileOutlineView) {
             self.parent = parent
@@ -98,6 +101,10 @@ struct FileOutlineView: NSViewRepresentable {
             if renderedDirectoryStatuses != parent.directoryStatuses {
                 renderedDirectoryStatuses = parent.directoryStatuses
                 outlineView?.reloadData()
+            }
+            if handledExpansionRequest != parent.expansionRequest {
+                handledExpansionRequest = parent.expansionRequest
+                parent.shouldExpandAll ? expandAll() : collapseAll()
             }
             synchronizeSelection(with: parent.selectedURL)
         }
@@ -375,6 +382,24 @@ struct FileOutlineView: NSViewRepresentable {
             }
         }
 
+        private func expandAll() {
+            guard let outlineView, let rootItem else { return }
+            expandedURLs = Set(allDirectoryURLs(in: parent.root))
+            for child in rootItem.children {
+                restoreExpansion(of: child, in: outlineView)
+            }
+        }
+
+        private func collapseAll() {
+            outlineView?.collapseItem(nil, collapseChildren: true)
+            expandedURLs.removeAll()
+        }
+
+        private func allDirectoryURLs(in node: FileNode) -> [URL] {
+            guard node.isDirectory else { return [] }
+            return [node.url] + (node.children ?? []).flatMap { allDirectoryURLs(in: $0) }
+        }
+
         private func restoreExpansion(of item: OutlineItem, in outlineView: NSOutlineView) {
             guard expandedURLs.contains(item.node.url) else { return }
             outlineView.expandItem(item, expandChildren: false)
@@ -388,10 +413,10 @@ struct FileOutlineView: NSViewRepresentable {
             OutlineBuildConfiguration(
                 artifacts: parent.artifacts,
                 previousSizes: parent.previousSizes,
-                searchQuery: parent.searchQuery,
                 ecosystemFilter: parent.ecosystemFilter,
                 riskFilter: parent.riskFilter,
                 artifactKindFilter: parent.artifactKindFilter,
+                allowedArtifactURLs: parent.allowedArtifactURLs,
                 sortKey: sortKey,
                 sortAscending: sortAscending
             )
@@ -488,18 +513,18 @@ private extension ScannedDirectory.Status {
 struct OutlineBuildConfiguration: Equatable, Sendable {
     let artifacts: [URL: DeveloperArtifact]
     let previousSizes: [String: DirectorySizeSnapshot]
-    let searchQuery: String
     let ecosystemFilter: DeveloperEcosystem?
     let riskFilter: ArtifactRisk?
     let artifactKindFilter: String?
+    let allowedArtifactURLs: Set<URL>?
     let sortKey: String
     let sortAscending: Bool
 
     var hasActiveFilters: Bool {
-        !searchQuery.isEmpty
-            || ecosystemFilter != nil
+        ecosystemFilter != nil
             || riskFilter != nil
             || artifactKindFilter != nil
+            || allowedArtifactURLs != nil
     }
 }
 
@@ -521,9 +546,6 @@ enum OutlineTreeBuilder {
             .sorted { orderedBefore($0, $1, configuration: configuration) }
         guard !Task.isCancelled else { return nil }
         let artifact = configuration.artifacts[node.url]
-        let matchesSearch = configuration.searchQuery.isEmpty
-            || node.name.localizedCaseInsensitiveContains(configuration.searchQuery)
-            || node.url.path.localizedCaseInsensitiveContains(configuration.searchQuery)
         let matchesEcosystem: Bool
         if let ecosystem = configuration.ecosystemFilter {
             matchesEcosystem = artifact?.ecosystems.contains(ecosystem) == true
@@ -533,14 +555,17 @@ enum OutlineTreeBuilder {
         let matchesRisk = configuration.riskFilter == nil || artifact?.risk == configuration.riskFilter
         let matchesKind = configuration.artifactKindFilter == nil
             || artifact?.artifactKind == configuration.artifactKindFilter
-        guard (matchesSearch && matchesEcosystem && matchesRisk && matchesKind) || !children.isEmpty else {
+        let matchesAllowedArtifact = configuration.allowedArtifactURLs == nil
+            || configuration.allowedArtifactURLs?.contains(node.url) == true
+        let matchesFilter = node.isDirectory && matchesEcosystem && matchesRisk && matchesKind && matchesAllowedArtifact
+        guard matchesFilter || !children.isEmpty else {
             return nil
         }
         return OutlineItem(
             node: node,
             children: children,
             configuration: configuration,
-            usesNodeMetrics: matchesSearch && matchesEcosystem && matchesRisk && matchesKind
+            usesNodeMetrics: matchesFilter
         )
     }
 

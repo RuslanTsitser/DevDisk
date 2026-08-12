@@ -3,6 +3,8 @@ import SwiftUI
 struct DiskExplorerView: View {
     @State private var state: DiskExplorerViewState
     @State private var isFilteringTree = false
+    @State private var expandAllRequest = 0
+    @State private var shouldExpandAll = false
 
     init(state: DiskExplorerViewState) {
         _state = State(initialValue: state)
@@ -49,19 +51,6 @@ struct DiskExplorerView: View {
     private var toolbar: some View {
         HStack(spacing: 10) {
             Text("DevDisk").font(.headline)
-            if state.currentRootURL != nil {
-                TextField("Search files and paths", text: $state.searchQuery)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(maxWidth: 280)
-                ecosystemPicker
-                riskPicker
-                artifactTypePicker
-                if isFilteringTree {
-                    ProgressView()
-                        .controlSize(.small)
-                        .help("Updating filtered results")
-                }
-            }
             Spacer()
             if !state.insights.artifacts.isEmpty {
                 Button("Export CSV", systemImage: "square.and.arrow.up") { exportCSV() }
@@ -80,39 +69,6 @@ struct DiskExplorerView: View {
             }
         }
         .padding(12)
-    }
-
-    private var ecosystemPicker: some View {
-        Picker("Ecosystem", selection: $state.ecosystemFilter) {
-            Text("All ecosystems").tag(DeveloperEcosystem?.none)
-            ForEach(DeveloperEcosystem.allCases) { value in
-                Text(value.title).tag(DeveloperEcosystem?.some(value))
-            }
-        }
-        .labelsHidden()
-        .frame(width: 145)
-    }
-
-    private var riskPicker: some View {
-        Picker("Risk", selection: $state.riskFilter) {
-            Text("All risks").tag(ArtifactRisk?.none)
-            ForEach(ArtifactRisk.allCases) { value in
-                Text(value.title).tag(ArtifactRisk?.some(value))
-            }
-        }
-        .labelsHidden()
-        .frame(width: 135)
-    }
-
-    private var artifactTypePicker: some View {
-        Picker("Artifact type", selection: $state.artifactKindFilter) {
-            Text("All artifact types").tag(String?.none)
-            ForEach(Set(state.insights.artifacts.map(\.artifactKind)).sorted(), id: \.self) { value in
-                Text(value).tag(String?.some(value))
-            }
-        }
-        .labelsHidden()
-        .frame(width: 170)
     }
 
     @ViewBuilder
@@ -157,22 +113,42 @@ struct DiskExplorerView: View {
             Divider()
             if let root = state.outlineRoot {
                 HSplitView {
-                    FileOutlineView(
-                        root: root,
-                        artifacts: Dictionary(uniqueKeysWithValues: state.insights.artifacts.map { ($0.url, $0) }),
-                        previousSizes: state.previousDirectorySizes,
-                        searchQuery: state.searchQuery,
-                        ecosystemFilter: state.ecosystemFilter,
-                        riskFilter: state.riskFilter,
-                        artifactKindFilter: state.artifactKindFilter,
-                        directoryStatuses: state.visibleDirectoryStatuses,
-                        isFiltering: $isFilteringTree,
-                        selectedURL: Binding(
-                            get: { state.selectedURL },
-                            set: { value in state.select(value) }
-                        ),
-                        requestCleanup: { artifact in state.requestDeletion(of: artifact) }
-                    )
+                    VStack(spacing: 0) {
+                        HStack {
+                            if isFilteringTree {
+                                ProgressView().controlSize(.small)
+                                Text("Updating filtered results")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button(shouldExpandAll ? "Collapse All" : "Expand All",
+                                   systemImage: shouldExpandAll ? "rectangle.compress.vertical" : "rectangle.expand.vertical") {
+                                shouldExpandAll.toggle()
+                                expandAllRequest += 1
+                            }
+                        }
+                        .padding(.horizontal, 10).padding(.vertical, 7)
+                        .background(.bar)
+                        Divider()
+                        FileOutlineView(
+                            root: root,
+                            artifacts: Dictionary(uniqueKeysWithValues: state.insights.artifacts.map { ($0.url, $0) }),
+                            previousSizes: state.previousDirectorySizes,
+                            ecosystemFilter: state.ecosystemFilter,
+                            riskFilter: state.riskFilter,
+                            artifactKindFilter: state.artifactKindFilter,
+                            allowedArtifactURLs: state.filteredArtifactURLs,
+                            directoryStatuses: state.visibleDirectoryStatuses,
+                            expansionRequest: expandAllRequest,
+                            shouldExpandAll: shouldExpandAll,
+                            isFiltering: $isFilteringTree,
+                            selectedURL: Binding(
+                                get: { state.selectedURL },
+                                set: { value in state.select(value) }
+                            ),
+                            requestCleanup: { artifact in state.requestDeletion(of: artifact) }
+                        )
+                    }
                     .frame(minWidth: 700, maxHeight: .infinity)
                     insightsPane
                         .frame(
@@ -239,11 +215,13 @@ struct DiskExplorerView: View {
             }
             Divider()
             Text("Largest artifacts").font(.headline)
-            ForEach(visibleInsights.artifacts.prefix(8)) { artifact in
+            ForEach(state.insights.artifacts.prefix(8)) { artifact in
                 Button {
-                    state.select(artifact.url)
+                    state.toggleArtifactFilter(artifact)
                 } label: {
-                    HStack {
+                    HStack(spacing: 8) {
+                        Image(systemName: state.insightFilter == .artifact(artifact.url) ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(state.insightFilter == .artifact(artifact.url) ? Color.accentColor : .secondary)
                         VStack(alignment: .leading) {
                             Text(artifact.project.map { "\($0.name) · \(artifact.name)" } ?? artifact.artifactKind)
                                 .lineLimit(1)
@@ -255,16 +233,24 @@ struct DiskExplorerView: View {
                         Text(artifact.allocatedSize, format: .byteCount(style: .file))
                             .monospacedDigit()
                     }
+                    .padding(.horizontal, 8).padding(.vertical, 6)
+                    .background(
+                        state.insightFilter == .artifact(artifact.url) ? Color.accentColor.opacity(0.14) : Color.clear,
+                        in: RoundedRectangle(cornerRadius: 7)
+                    )
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
             Divider()
             Text("Projects").font(.headline)
-            ForEach(projectSummaries) { summary in
+            ForEach(allProjectSummaries) { summary in
                 Button {
-                    state.select(summary.largestArtifactURL)
+                    state.toggleProjectFilter(rootURL: summary.rootURL)
                 } label: {
-                    HStack {
+                    HStack(spacing: 8) {
+                        Image(systemName: state.insightFilter == .project(summary.rootURL) ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(state.insightFilter == .project(summary.rootURL) ? Color.accentColor : .secondary)
                         VStack(alignment: .leading) {
                             Text(summary.name).lineLimit(1)
                             Text("\(summary.artifactCount.formatted()) artifacts")
@@ -275,6 +261,12 @@ struct DiskExplorerView: View {
                         Text(summary.allocatedSize, format: .byteCount(style: .file))
                             .monospacedDigit()
                     }
+                    .padding(.horizontal, 8).padding(.vertical, 6)
+                    .background(
+                        state.insightFilter == .project(summary.rootURL) ? Color.accentColor.opacity(0.14) : Color.clear,
+                        in: RoundedRectangle(cornerRadius: 7)
+                    )
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help(summary.path)
@@ -282,26 +274,34 @@ struct DiskExplorerView: View {
             Divider()
             Text("Ecosystems").font(.headline)
             ForEach(DeveloperEcosystem.allCases.filter { ecosystem in
-                visibleInsights.artifacts.contains { $0.ecosystems.contains(ecosystem) }
+                state.insights.artifacts.contains { $0.ecosystems.contains(ecosystem) }
             }) { ecosystem in
-                let artifacts = visibleInsights.storageAccountingArtifacts.filter {
+                let artifacts = state.insights.storageAccountingArtifacts.filter {
                     $0.ecosystems.contains(ecosystem)
                 }
-                aggregateMetric(
-                    ecosystem.title,
-                    artifacts: artifacts,
-                    previousKey: "ecosystem:\(ecosystem.rawValue)"
-                )
+                Button { state.toggleEcosystemFilter(ecosystem) } label: {
+                    aggregateFilterRow(
+                        ecosystem.title,
+                        artifacts: artifacts,
+                        previousKey: "ecosystem:\(ecosystem.rawValue)",
+                        isActive: state.ecosystemFilter == ecosystem
+                    )
+                }
+                .buttonStyle(.plain)
             }
             Divider()
             Text("Artifact types").font(.headline)
-            ForEach(artifactTypeSummaries) { summary in
-                aggregateMetric(
-                    summary.kind,
-                    artifacts: summary.artifacts,
-                    previousKey: "type:\(summary.kind)",
-                    count: summary.count
-                )
+            ForEach(allArtifactTypeSummaries) { summary in
+                Button { state.toggleArtifactKindFilter(summary.kind) } label: {
+                    aggregateFilterRow(
+                        summary.kind,
+                        artifacts: summary.artifacts,
+                        previousKey: "type:\(summary.kind)",
+                        count: summary.count,
+                        isActive: state.artifactKindFilter == summary.kind
+                    )
+                }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -416,11 +416,52 @@ struct DiskExplorerView: View {
         )
     }
 
+    private func aggregateFilterRow(
+        _ title: String,
+        artifacts: [DeveloperArtifact],
+        previousKey: String,
+        count: Int? = nil,
+        isActive: Bool
+    ) -> some View {
+        let current = artifacts.reduce(0) { $0 + $1.allocatedSize }
+        let delta = state.previousCategorySizes[previousKey].map { current - $0.allocatedSize }
+        let suffix = delta.map {
+            $0 == 0 ? "" : " \($0 > 0 ? "+" : "−")\(abs($0).formatted(.byteCount(style: .file)))"
+        } ?? ""
+        return HStack(spacing: 8) {
+            Image(systemName: isActive ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(isActive ? Color.accentColor : .secondary)
+            Text(title).lineLimit(1)
+            Spacer()
+            Text("\((count ?? artifacts.count).formatted()) · \(current.formatted(.byteCount(style: .file)))\(suffix)")
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+        }
+        .font(.callout)
+        .padding(.horizontal, 8).padding(.vertical, 6)
+        .background(isActive ? Color.accentColor.opacity(0.14) : Color.clear,
+                    in: RoundedRectangle(cornerRadius: 7))
+        .contentShape(Rectangle())
+    }
+
     private var artifactTypeSummaries: [ArtifactTypeSummary] {
         let visibleInsights = state.filteredInsights
         let groups = Dictionary(grouping: visibleInsights.artifacts) { artifact in
             artifact.artifactKind
         }
+        var values: [ArtifactTypeSummary] = []
+        for (kind, detected) in groups {
+            let accounted = DeveloperInsights(projects: [], artifacts: detected).storageAccountingArtifacts
+            values.append(ArtifactTypeSummary(kind: kind, count: detected.count, artifacts: accounted))
+        }
+        values.sort { left, right in
+            left.count == right.count ? left.kind < right.kind : left.count > right.count
+        }
+        return Array(values.prefix(12))
+    }
+
+    private var allArtifactTypeSummaries: [ArtifactTypeSummary] {
+        let groups = Dictionary(grouping: state.insights.artifacts) { $0.artifactKind }
         var values: [ArtifactTypeSummary] = []
         for (kind, detected) in groups {
             let accounted = DeveloperInsights(projects: [], artifacts: detected).storageAccountingArtifacts
@@ -456,6 +497,26 @@ struct DiskExplorerView: View {
         }
         .prefix(8)
         .map { $0 }
+    }
+
+    private var allProjectSummaries: [ProjectStorageSummary] {
+        let grouped = Dictionary(grouping: state.insights.artifacts.compactMap { artifact in
+            artifact.project.map { ($0, artifact) }
+        }) { $0.0.rootURL }
+        return grouped.compactMap { rootURL, values in
+            guard let project = values.first?.0,
+                  let largest = values.map(\.1).max(by: { $0.allocatedSize < $1.allocatedSize })
+            else { return nil }
+            let artifacts = values.map(\.1)
+            return ProjectStorageSummary(
+                rootURL: rootURL, name: project.name, path: project.rootURL.path,
+                artifactCount: artifacts.count,
+                allocatedSize: DeveloperInsights(projects: [project], artifacts: artifacts).allocatedSize,
+                largestArtifactURL: largest.url
+            )
+        }
+        .sorted { $0.allocatedSize == $1.allocatedSize ? $0.path < $1.path : $0.allocatedSize > $1.allocatedSize }
+        .prefix(8).map { $0 }
     }
 
     private func scanningHeader(_ progress: ScanProgress) -> some View {
