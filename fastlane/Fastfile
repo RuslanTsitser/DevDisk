@@ -182,7 +182,7 @@ platform :mac do
       derived_data_path: File.join(output_directory, "DerivedData"),
       export_team_id: team_id,
       export_options: {
-        method: "app-store-connect",
+        method: "app-store",
         destination: "export",
         signingStyle: "automatic",
         teamID: team_id,
