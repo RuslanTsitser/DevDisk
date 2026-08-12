@@ -58,8 +58,7 @@ struct FileOutlineView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSScrollView, context: Context) {
-        context.coordinator.parent = self
-        context.coordinator.rebuild(from: self)
+        context.coordinator.update(from: self)
     }
 
     @MainActor
@@ -75,12 +74,32 @@ struct FileOutlineView: NSViewRepresentable {
         private var expansionTasks: [URL: Task<Void, Never>] = [:]
         private var expandedURLs: Set<URL> = []
         private var rebuildGeneration = UUID()
+        private var renderedRoot: FileNode?
+        private var renderedConfiguration: OutlineBuildConfiguration?
+        private var renderedDirectoryStatuses: [URL: ScannedDirectory.Status] = [:]
 
         init(parent: FileOutlineView) {
             self.parent = parent
             bytes.countStyle = .file
             date.dateStyle = .short
             date.timeStyle = .short
+        }
+
+        func update(from parent: FileOutlineView) {
+            self.parent = parent
+            let configuration = configuration(for: parent)
+            guard renderedRoot == parent.root,
+                  renderedConfiguration == configuration
+            else {
+                rebuild(from: parent)
+                return
+            }
+
+            if renderedDirectoryStatuses != parent.directoryStatuses {
+                renderedDirectoryStatuses = parent.directoryStatuses
+                outlineView?.reloadData()
+            }
+            synchronizeSelection(with: parent.selectedURL)
         }
 
         func rebuild(from parent: FileOutlineView) {
@@ -90,6 +109,9 @@ struct FileOutlineView: NSViewRepresentable {
             let configuration = configuration(for: parent)
             let root = parent.root
             let selectedURL = parent.selectedURL
+            renderedRoot = root
+            renderedConfiguration = configuration
+            renderedDirectoryStatuses = parent.directoryStatuses
             let generation = UUID()
             rebuildGeneration = generation
             Task { @MainActor in
@@ -112,9 +134,18 @@ struct FileOutlineView: NSViewRepresentable {
                 rootItem = value
                 outlineView?.reloadData()
                 restoreExpandedItems()
-                if let selectedURL, let row = row(for: selectedURL), row >= 0 {
-                    outlineView?.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
-                }
+                synchronizeSelection(with: selectedURL)
+            }
+        }
+
+        private func synchronizeSelection(with selectedURL: URL?) {
+            guard let outlineView else { return }
+            let selectedRow = selectedURL.flatMap(row(for:)) ?? -1
+            guard outlineView.selectedRow != selectedRow else { return }
+            if selectedRow >= 0 {
+                outlineView.selectRowIndexes(IndexSet(integer: selectedRow), byExtendingSelection: false)
+            } else {
+                outlineView.deselectAll(nil)
             }
         }
 
@@ -454,7 +485,7 @@ private extension ScannedDirectory.Status {
     }
 }
 
-struct OutlineBuildConfiguration: Sendable {
+struct OutlineBuildConfiguration: Equatable, Sendable {
     let artifacts: [URL: DeveloperArtifact]
     let previousSizes: [String: DirectorySizeSnapshot]
     let searchQuery: String
