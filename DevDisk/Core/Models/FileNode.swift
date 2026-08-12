@@ -42,14 +42,29 @@ struct FileNode: Codable, Identifiable, Hashable, Sendable {
     }
 
     func node(at target: URL) -> FileNode? {
-        guard url != target else { return self }
-        return children?.lazy.compactMap { $0.node(at: target) }.first
+        guard Self.contains(target, in: url) else { return nil }
+        var current = self
+        while current.url.standardizedFileURL != target.standardizedFileURL {
+            guard let next = current.children?.first(where: {
+                Self.contains(target, in: $0.url)
+            }) else { return nil }
+            current = next
+        }
+        return current
     }
 
     func replacing(_ replacement: FileNode) -> FileNode {
-        guard url != replacement.url else { return replacement }
-        guard let children else { return self }
-        let updatedChildren = children.map { $0.replacing(replacement) }
+        guard url.standardizedFileURL != replacement.url.standardizedFileURL else {
+            return replacement
+        }
+        guard let children, Self.contains(replacement.url, in: url) else { return self }
+        var didReplace = false
+        let updatedChildren = children.map { child in
+            guard Self.contains(replacement.url, in: child.url) else { return child }
+            didReplace = true
+            return child.replacing(replacement)
+        }
+        guard didReplace else { return self }
         return FileNode(
             id: id,
             url: url,
@@ -64,10 +79,19 @@ struct FileNode: Codable, Identifiable, Hashable, Sendable {
     }
 
     func removing(_ target: URL) -> FileNode {
-        guard let children else { return self }
-        let updatedChildren = children
-            .filter { $0.url != target }
-            .map { $0.removing(target) }
+        guard let children, Self.contains(target, in: url), url != target else { return self }
+        var didRemove = false
+        let updatedChildren = children.compactMap { child -> FileNode? in
+            if child.url.standardizedFileURL == target.standardizedFileURL {
+                didRemove = true
+                return nil
+            }
+            guard Self.contains(target, in: child.url) else { return child }
+            let updated = child.removing(target)
+            didRemove = updated != child
+            return updated
+        }
+        guard didRemove else { return self }
         return FileNode(
             id: id,
             url: url,
@@ -79,5 +103,13 @@ struct FileNode: Codable, Identifiable, Hashable, Sendable {
             accessStatus: accessStatus,
             children: updatedChildren
         )
+    }
+
+    private static func contains(_ target: URL, in ancestor: URL) -> Bool {
+        let targetPath = target.standardizedFileURL.path
+        let ancestorPath = ancestor.standardizedFileURL.path
+        if targetPath == ancestorPath { return true }
+        let prefix = ancestorPath == "/" ? "/" : ancestorPath + "/"
+        return targetPath.hasPrefix(prefix)
     }
 }

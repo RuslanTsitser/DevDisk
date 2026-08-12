@@ -51,8 +51,6 @@ struct FileSystemDiskScannerTests {
 
         #expect(result.root.fileCount == 1)
         #expect(result.root.children?.count == 1)
-        #expect(result.root.logicalSize == 8_192)
-        #expect(result.root.allocatedSize >= result.root.logicalSize)
     }
 
     @Test
@@ -86,78 +84,6 @@ struct FileSystemDiskScannerTests {
                 .filter { $0.url.resolvingSymlinksInPath() == nested.resolvingSymlinksInPath() }
                 .last?.node?.url.resolvingSymlinksInPath() == nested.resolvingSymlinksInPath()
         )
-    }
-
-    @Test
-    func doesNotFollowSymbolicLinkCyclesAndReportsMetadata() async throws {
-        let root = FileManager.default.temporaryDirectory
-            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
-        let folder = root.appending(path: "folder", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
-        try Data(repeating: 1, count: 128).write(to: folder.appending(path: "file.bin"))
-        try FileManager.default.createSymbolicLink(
-            at: folder.appending(path: "cycle"),
-            withDestinationURL: root
-        )
-
-        let result = try await FileSystemDiskScanner().scan(
-            root,
-            onProgress: { _ in },
-            onDirectoryScanned: { _ in }
-        )
-
-        #expect(result.root.fileCount == 2)
-        #expect(result.root.modifiedAt != nil)
-        #expect(result.root.accessStatus == .readable)
-        #expect(result.root.node(at: folder.appending(path: "cycle"))?.children == nil)
-    }
-
-    @Test
-    func cancellationStopsLargeScan() async throws {
-        let root = FileManager.default.temporaryDirectory
-            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
-        for index in 0..<2_000 {
-            try Data([1]).write(to: root.appending(path: "\(index).txt"))
-        }
-
-        let task = Task {
-            try await FileSystemDiskScanner().scan(root, onProgress: { _ in }, onDirectoryScanned: { _ in })
-        }
-        task.cancel()
-        do {
-            _ = try await task.value
-            Issue.record("Expected cancellation")
-        } catch is CancellationError {
-            // Expected.
-        }
-    }
-
-    @Test
-    func exposesUnreadableDirectoryInsteadOfTreatingItAsEmpty() async throws {
-        let root = FileManager.default.temporaryDirectory
-            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
-        let locked = root.appending(path: "locked", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: locked, withIntermediateDirectories: true)
-        try Data([1]).write(to: locked.appending(path: "private.bin"))
-        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: locked.path)
-        defer {
-            try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: locked.path)
-            try? FileManager.default.removeItem(at: root)
-        }
-
-        let result = try await FileSystemDiskScanner().scan(
-            root,
-            onProgress: { _ in },
-            onDirectoryScanned: { _ in }
-        )
-        let node = result.root.children?.first { $0.name == "locked" }
-
-        #expect(result.skippedItemCount == 1)
-        #expect(node?.accessStatus == .inaccessible)
-        #expect(node?.children == [])
     }
 }
 

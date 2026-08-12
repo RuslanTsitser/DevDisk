@@ -69,6 +69,7 @@ struct FileOutlineView: NSViewRepresentable {
         private var sortKey = "allocated"
         private var sortAscending = false
         private var rebuildTask: Task<Void, Never>?
+        private var expansionTasks: [URL: Task<Void, Never>] = [:]
         private var expandedURLs: Set<URL> = []
 
         init(parent: FileOutlineView) {
@@ -80,16 +81,9 @@ struct FileOutlineView: NSViewRepresentable {
 
         func rebuild(from parent: FileOutlineView) {
             rebuildTask?.cancel()
-            let configuration = OutlineBuildConfiguration(
-                artifacts: parent.artifacts,
-                previousSizes: parent.previousSizes,
-                searchQuery: parent.searchQuery,
-                ecosystemFilter: parent.ecosystemFilter,
-                riskFilter: parent.riskFilter,
-                artifactKindFilter: parent.artifactKindFilter,
-                sortKey: sortKey,
-                sortAscending: sortAscending
-            )
+            expansionTasks.values.forEach { $0.cancel() }
+            expansionTasks.removeAll()
+            let configuration = configuration(for: parent)
             let root = parent.root
             let selectedURL = parent.selectedURL
             rebuildTask = Task { [weak self] in
@@ -121,7 +115,37 @@ struct FileOutlineView: NSViewRepresentable {
         }
 
         func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
-            !(item as! OutlineItem).children.isEmpty
+            guard let item = item as? OutlineItem else { return false }
+            return item.node.children?.isEmpty == false
+        }
+
+        func outlineView(_ outlineView: NSOutlineView, shouldExpandItem item: Any) -> Bool {
+            guard let item = item as? OutlineItem else { return false }
+            guard !item.hasLoadedChildren else { return true }
+            let url = item.node.url
+            guard expansionTasks[url] == nil else { return false }
+            let node = item.node
+            let configuration = configuration(for: parent)
+            expansionTasks[url] = Task { [weak self, weak outlineView] in
+                let worker = Task.detached(priority: .userInitiated) {
+                    OutlineTreeBuilder.makeDirectChildren(node, configuration: configuration)
+                }
+                let children = await withTaskCancellationHandler {
+                    await worker.value
+                } onCancel: {
+                    worker.cancel()
+                }
+                guard let self, !Task.isCancelled else { return }
+                expansionTasks[url] = nil
+                guard let outlineView, outlineView.row(forItem: item) >= 0 else { return }
+                item.replaceChildren(children)
+                outlineView.reloadItem(item, reloadChildren: true)
+                outlineView.expandItem(item, expandChildren: false)
+                for child in children {
+                    restoreExpansion(of: child, in: outlineView)
+                }
+            }
+            return false
         }
 
         func outlineView(
@@ -149,17 +173,28 @@ struct FileOutlineView: NSViewRepresentable {
                     cell.textField?.toolTip = status.description
                     cell.textField?.textColor = status.textColor
                 } else {
-                    cell.textField?.toolTip = node.url.path
+                    cell.textField?.toolTip = item.representsFilteredSubtotal
+                        ? "Filtered subtotal for matching items in \(node.url.path)"
+                        : node.url.path
                     cell.textField?.textColor = .labelColor
                 }
-            case "allocated": cell.textField?.stringValue = bytes.string(fromByteCount: node.allocatedSize)
-            case "logical": cell.textField?.stringValue = bytes.string(fromByteCount: node.logicalSize)
-            case "files": cell.textField?.stringValue = node.fileCount.formatted()
-            case "modified": cell.textField?.stringValue = node.modifiedAt.map { date.string(from: $0) } ?? "—"
+            case "allocated":
+                cell.textField?.stringValue = bytes.string(fromByteCount: item.allocatedSize)
+            case "logical":
+                cell.textField?.stringValue = bytes.string(fromByteCount: item.logicalSize)
+            case "files":
+                cell.textField?.stringValue = item.fileCount.formatted()
+            case "modified":
+                cell.textField?.stringValue = item.modifiedAt.map { date.string(from: $0) } ?? "—"
             case "growth":
+                guard !item.representsFilteredSubtotal, !parent.previousSizes.isEmpty else {
+                    cell.textField?.stringValue = "—"
+                    cell.textField?.textColor = .secondaryLabelColor
+                    break
+                }
                 let path = node.url.path(percentEncoded: false)
                 if let previous = parent.previousSizes[path] {
-                    let delta = node.allocatedSize - previous.allocatedSize
+                    let delta = item.allocatedSize - previous.allocatedSize
                     cell.textField?.stringValue = delta == 0
                         ? "—"
                         : (delta > 0 ? "+" : "−") + bytes.string(fromByteCount: abs(delta))
@@ -253,9 +288,23 @@ struct FileOutlineView: NSViewRepresentable {
         private func restoreExpansion(of item: OutlineItem, in outlineView: NSOutlineView) {
             guard expandedURLs.contains(item.node.url) else { return }
             outlineView.expandItem(item, expandChildren: false)
+            guard item.hasLoadedChildren else { return }
             for child in item.children {
                 restoreExpansion(of: child, in: outlineView)
             }
+        }
+
+        private func configuration(for parent: FileOutlineView) -> OutlineBuildConfiguration {
+            OutlineBuildConfiguration(
+                artifacts: parent.artifacts,
+                previousSizes: parent.previousSizes,
+                searchQuery: parent.searchQuery,
+                ecosystemFilter: parent.ecosystemFilter,
+                riskFilter: parent.riskFilter,
+                artifactKindFilter: parent.artifactKindFilter,
+                sortKey: sortKey,
+                sortAscending: sortAscending
+            )
         }
 
         private func statusIcon(for node: FileNode) -> NSImage {
@@ -355,7 +404,12 @@ enum OutlineTreeBuilder {
         guard (matchesSearch && matchesEcosystem && matchesRisk && matchesKind) || !children.isEmpty else {
             return nil
         }
-        return OutlineItem(node: node, children: children, configuration: configuration)
+        return OutlineItem(
+            node: node,
+            children: children,
+            configuration: configuration,
+            usesNodeMetrics: matchesSearch && matchesEcosystem && matchesRisk && matchesKind
+        )
     }
 
     fileprivate static func makeDirectChildren(
@@ -363,7 +417,10 @@ enum OutlineTreeBuilder {
         configuration: OutlineBuildConfiguration
     ) -> [OutlineItem] {
         (node.children ?? [])
-            .map { OutlineItem(node: $0, configuration: configuration) }
+            .compactMap { child in
+                guard !Task.isCancelled else { return nil }
+                return OutlineItem(node: child, configuration: configuration)
+            }
             .sorted { orderedBefore($0, $1, configuration: configuration) }
     }
 
@@ -378,16 +435,16 @@ enum OutlineTreeBuilder {
         let result: ComparisonResult
         switch configuration.sortKey {
         case "name": result = left.name.localizedStandardCompare(right.name)
-        case "logical": result = compare(left.logicalSize, right.logicalSize)
-        case "files": result = compare(Int64(left.fileCount), Int64(right.fileCount))
+        case "logical": result = compare(lhs.logicalSize, rhs.logicalSize)
+        case "files": result = compare(Int64(lhs.fileCount), Int64(rhs.fileCount))
         case "modified":
             result = compare(
-                left.modifiedAt?.timeIntervalSinceReferenceDate ?? -.greatestFiniteMagnitude,
-                right.modifiedAt?.timeIntervalSinceReferenceDate ?? -.greatestFiniteMagnitude
+                lhs.modifiedAt?.timeIntervalSinceReferenceDate ?? -.greatestFiniteMagnitude,
+                rhs.modifiedAt?.timeIntervalSinceReferenceDate ?? -.greatestFiniteMagnitude
             )
         case "growth":
             result = compare(growth(left, configuration) ?? .min, growth(right, configuration) ?? .min)
-        default: result = compare(left.allocatedSize, right.allocatedSize)
+        default: result = compare(lhs.allocatedSize, rhs.allocatedSize)
         }
         if result == .orderedSame {
             return left.name.localizedStandardCompare(right.name) == .orderedAscending
@@ -410,23 +467,60 @@ enum OutlineTreeBuilder {
 
 final class OutlineItem: NSObject, @unchecked Sendable {
     let node: FileNode
+    let allocatedSize: Int64
+    let logicalSize: Int64
+    let fileCount: Int
+    let modifiedAt: Date?
+    let representsFilteredSubtotal: Bool
     private let configuration: OutlineBuildConfiguration
     private var cachedChildren: [OutlineItem]?
 
+    var hasLoadedChildren: Bool { cachedChildren != nil }
+
     var children: [OutlineItem] {
-        if let cachedChildren { return cachedChildren }
-        let value = OutlineTreeBuilder.makeDirectChildren(node, configuration: configuration)
-        cachedChildren = value
-        return value
+        cachedChildren ?? []
+    }
+
+    func replaceChildren(_ children: [OutlineItem]) {
+        cachedChildren = children
     }
 
     init(
         node: FileNode,
         children: [OutlineItem]? = nil,
-        configuration: OutlineBuildConfiguration
+        configuration: OutlineBuildConfiguration,
+        usesNodeMetrics: Bool = true
     ) {
         self.node = node
         self.configuration = configuration
         cachedChildren = children
+        if usesNodeMetrics || children == nil {
+            allocatedSize = node.allocatedSize
+            logicalSize = node.logicalSize
+            fileCount = node.fileCount
+            modifiedAt = node.modifiedAt
+            representsFilteredSubtotal = false
+        } else {
+            let includedChildren = children ?? []
+            allocatedSize = Self.sum(includedChildren.map(\.allocatedSize))
+            logicalSize = Self.sum(includedChildren.map(\.logicalSize))
+            fileCount = Self.sum(includedChildren.map(\.fileCount))
+            modifiedAt = includedChildren.compactMap(\.modifiedAt).max()
+            representsFilteredSubtotal = true
+        }
+    }
+
+    private static func sum(_ values: [Int64]) -> Int64 {
+        values.reduce(0) { partial, value in
+            let (result, overflow) = partial.addingReportingOverflow(value)
+            return overflow ? .max : result
+        }
+    }
+
+    private static func sum(_ values: [Int]) -> Int {
+        values.reduce(0) { partial, value in
+            let (result, overflow) = partial.addingReportingOverflow(value)
+            return overflow ? .max : result
+        }
     }
 }

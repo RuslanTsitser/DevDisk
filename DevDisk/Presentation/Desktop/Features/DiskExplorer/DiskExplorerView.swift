@@ -194,28 +194,35 @@ struct DiskExplorerView: View {
     }
 
     private var summary: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            metric("Projects", value: state.insights.projects.count.formatted())
-            metric("Artifacts", value: state.insights.artifacts.count.formatted())
+        let visibleInsights = state.filteredInsights
+        return VStack(alignment: .leading, spacing: 12) {
+            metric("Projects", value: visibleInsights.projects.count.formatted())
+            metric("Artifacts", value: visibleInsights.artifacts.count.formatted())
             metric(
-                "Developer storage",
-                value: state.insights.allocatedSize.formatted(.byteCount(style: .file))
+                state.hasActiveFilters ? "Filtered storage" : "Developer storage",
+                value: visibleInsights.allocatedSize.formatted(.byteCount(style: .file))
             )
-            let changes = state.growthSummary
-            metric(
-                "Directory changes",
-                value: "+\(changes.added)  −\(changes.removed)  ↑\(changes.grown)  ↓\(changes.shrunk)"
-            )
+            if let changes = state.growthSummary {
+                metric(
+                    "Directory changes",
+                    value: "+\(changes.added)  −\(changes.removed)  ↑\(changes.grown)  ↓\(changes.shrunk)"
+                )
+            } else {
+                metric("Directory changes", value: "No previous snapshot")
+            }
             Divider()
             Text("Largest artifacts").font(.headline)
-            ForEach(state.insights.artifacts.prefix(8)) { artifact in
+            ForEach(visibleInsights.artifacts.prefix(8)) { artifact in
                 Button {
                     state.select(artifact.url)
                 } label: {
                     HStack {
                         VStack(alignment: .leading) {
-                            Text(artifact.name).lineLimit(1)
-                            Text(artifact.artifactKind).font(.caption).foregroundStyle(.secondary)
+                            Text(artifact.project.map { "\($0.name) · \(artifact.name)" } ?? artifact.artifactKind)
+                                .lineLimit(1)
+                            Text(artifact.project == nil ? artifact.name : artifact.artifactKind)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                         Spacer()
                         Text(artifact.allocatedSize, format: .byteCount(style: .file))
@@ -225,11 +232,32 @@ struct DiskExplorerView: View {
                 .buttonStyle(.plain)
             }
             Divider()
+            Text("Projects").font(.headline)
+            ForEach(projectSummaries) { summary in
+                Button {
+                    state.select(summary.largestArtifactURL)
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(summary.name).lineLimit(1)
+                            Text("\(summary.artifactCount.formatted()) artifacts")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(summary.allocatedSize, format: .byteCount(style: .file))
+                            .monospacedDigit()
+                    }
+                }
+                .buttonStyle(.plain)
+                .help(summary.path)
+            }
+            Divider()
             Text("Ecosystems").font(.headline)
             ForEach(DeveloperEcosystem.allCases.filter { ecosystem in
-                state.insights.artifacts.contains { $0.ecosystems.contains(ecosystem) }
+                visibleInsights.artifacts.contains { $0.ecosystems.contains(ecosystem) }
             }) { ecosystem in
-                let artifacts = state.insights.storageAccountingArtifacts.filter {
+                let artifacts = visibleInsights.storageAccountingArtifacts.filter {
                     $0.ecosystems.contains(ecosystem)
                 }
                 aggregateMetric(
@@ -257,9 +285,19 @@ struct DiskExplorerView: View {
             Text(artifact.url.path).font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
             metric("Category", value: artifact.artifactKind)
             metric("Risk", value: artifact.risk.title)
+            metric("Cleanup", value: cleanupConsequence(for: artifact))
+            metric("Location source", value: artifact.locationEvidence.kind.title)
             metric("Allocated", value: artifact.allocatedSize.formatted(.byteCount(style: .file)))
             metric("Logical", value: artifact.logicalSize.formatted(.byteCount(style: .file)))
             if let project = artifact.project { metric("Project", value: project.name) }
+            Text(artifact.locationEvidence.detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+            if let documentationURL = artifact.locationEvidence.documentationURL {
+                Link("Open source documentation", destination: documentationURL)
+                    .font(.caption)
+            }
             Text(artifact.explanation).font(.callout).foregroundStyle(.secondary)
             HStack {
                 ForEach(artifact.ecosystems.sorted { $0.title < $1.title }) { value in
@@ -290,8 +328,22 @@ struct DiskExplorerView: View {
             metric("Logical", value: node.logicalSize.formatted(.byteCount(style: .file)))
             metric("Files", value: node.fileCount.formatted())
             metric("Access", value: node.accessStatus.rawValue.capitalized)
+            if state.hasActiveFilters {
+                Label(
+                    "The tree shows matching artifact subtotals. These values describe the whole folder.",
+                    systemImage: "line.3.horizontal.decrease.circle"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
             Button("Reveal in Finder", systemImage: "folder") {
                 NSWorkspace.shared.activateFileViewerSelecting([node.url])
+            }
+            if node.isDirectory, node.url != state.currentResult?.root.url {
+                Button("Refresh Folder", systemImage: "arrow.clockwise") {
+                    state.refresh(node)
+                }
+                .disabled(state.refreshingURL != nil)
             }
             Label("Regular filesystem items are read-only in DevDisk.", systemImage: "lock.shield")
                 .font(.caption).foregroundStyle(.secondary)
@@ -305,6 +357,19 @@ struct DiskExplorerView: View {
             Text(value).multilineTextAlignment(.trailing).textSelection(.enabled)
         }
         .font(.callout)
+    }
+
+    private func cleanupConsequence(for artifact: DeveloperArtifact) -> String {
+        if artifact.cleanupPolicy == .safeRebuildable {
+            return "Moves to Trash; rebuilt by the tool"
+        }
+        switch artifact.risk {
+        case .redownloadable: return "Read-only; use the owning tool"
+        case .toolManaged: return "Read-only; manage in the owning tool"
+        case .reviewFirst: return "Read-only; may contain important output"
+        case .userData: return "Read-only user data"
+        case .rebuildable: return "Read-only without verified project ownership"
+        }
     }
 
     private func aggregateMetric(
@@ -325,19 +390,45 @@ struct DiskExplorerView: View {
     }
 
     private var artifactTypeSummaries: [ArtifactTypeSummary] {
-        let accounting = state.insights.storageAccountingArtifacts
-        let groups = Dictionary(grouping: state.insights.artifacts) { artifact in
+        let visibleInsights = state.filteredInsights
+        let groups = Dictionary(grouping: visibleInsights.artifacts) { artifact in
             artifact.artifactKind
         }
         var values: [ArtifactTypeSummary] = []
         for (kind, detected) in groups {
-            let accounted = accounting.filter { artifact in artifact.artifactKind == kind }
+            let accounted = DeveloperInsights(projects: [], artifacts: detected).storageAccountingArtifacts
             values.append(ArtifactTypeSummary(kind: kind, count: detected.count, artifacts: accounted))
         }
         values.sort { left, right in
             left.count == right.count ? left.kind < right.kind : left.count > right.count
         }
         return Array(values.prefix(12))
+    }
+
+    private var projectSummaries: [ProjectStorageSummary] {
+        let grouped = Dictionary(grouping: state.filteredInsights.artifacts.compactMap { artifact in
+            artifact.project.map { ($0, artifact) }
+        }) { $0.0.rootURL }
+        return grouped.compactMap { rootURL, values in
+            guard let project = values.first?.0,
+                  let largest = values.map(\.1).max(by: { $0.allocatedSize < $1.allocatedSize })
+            else { return nil }
+            let artifacts = values.map(\.1)
+            return ProjectStorageSummary(
+                rootURL: rootURL,
+                name: project.name,
+                path: project.rootURL.path,
+                artifactCount: artifacts.count,
+                allocatedSize: DeveloperInsights(projects: [project], artifacts: artifacts).allocatedSize,
+                largestArtifactURL: largest.url
+            )
+        }
+        .sorted {
+            if $0.allocatedSize != $1.allocatedSize { return $0.allocatedSize > $1.allocatedSize }
+            return $0.path < $1.path
+        }
+        .prefix(8)
+        .map { $0 }
     }
 
     private func scanningHeader(_ progress: ScanProgress) -> some View {
@@ -377,7 +468,10 @@ struct DiskExplorerView: View {
                     }
                 }
             } else {
-                metricHeader("Developer storage", state.insights.allocatedSize)
+                metricHeader(
+                    state.hasActiveFilters ? "Filtered developer storage" : "Developer storage",
+                    state.filteredInsights.allocatedSize
+                )
             }
             Spacer()
             if result.skippedItemCount > 0 {
@@ -421,6 +515,16 @@ private struct ArtifactTypeSummary: Identifiable {
     let count: Int
     let artifacts: [DeveloperArtifact]
     var id: String { kind }
+}
+
+private struct ProjectStorageSummary: Identifiable {
+    let rootURL: URL
+    let name: String
+    let path: String
+    let artifactCount: Int
+    let allocatedSize: Int64
+    let largestArtifactURL: URL
+    var id: URL { rootURL }
 }
 
 #Preview("First Launch") {

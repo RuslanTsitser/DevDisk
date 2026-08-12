@@ -2,6 +2,15 @@ default_platform(:mac)
 
 project_root = File.expand_path("..", __dir__)
 
+def read_metadata(path)
+  File.read(path, encoding: "UTF-8").strip
+end
+
+def validate_text_limit(path, maximum)
+  value = read_metadata(path)
+  UI.user_error!("#{File.basename(path)} exceeds #{maximum} characters") if value.length > maximum
+end
+
 platform :mac do
   desc "Generate the Xcode project and run the macOS test suite"
   lane :verify do
@@ -26,6 +35,7 @@ platform :mac do
       description.txt
       keywords.txt
       promotional_text.txt
+      release_notes.txt
       privacy_url.txt
       support_url.txt
     ]
@@ -43,8 +53,32 @@ platform :mac do
     end
     UI.user_error!("Missing Fastlane metadata: #{missing.join(', ')}") unless missing.empty?
 
+    validate_text_limit(File.join(metadata_root, "name.txt"), 30)
+    validate_text_limit(File.join(metadata_root, "subtitle.txt"), 30)
+    validate_text_limit(File.join(metadata_root, "description.txt"), 4_000)
+    validate_text_limit(File.join(metadata_root, "keywords.txt"), 100)
+    validate_text_limit(File.join(metadata_root, "promotional_text.txt"), 170)
+    validate_text_limit(File.join(metadata_root, "release_notes.txt"), 4_000)
+    %w[privacy_url.txt support_url.txt].each do |name|
+      value = read_metadata(File.join(metadata_root, name))
+      UI.user_error!("#{name} must contain an HTTPS URL") unless value.start_with?("https://")
+    end
+
     screenshots = Dir[File.expand_path("screenshots/en-US/*.{png,jpg,jpeg}", __dir__)].sort
     UI.user_error!("Add at least one en-US screenshot") if screenshots.empty?
-    UI.success("Fastlane metadata and screenshots are present")
+    UI.user_error!("App Store Connect accepts at most 10 screenshots") if screenshots.length > 10
+    accepted_sizes = [[1_280, 800], [1_440, 900], [2_560, 1_600], [2_880, 1_800]]
+    screenshots.each do |path|
+      properties = sh(
+        "sips", "-g", "pixelWidth", "-g", "pixelHeight", "-g", "hasAlpha", path,
+        log: false
+      )
+      width = properties[/pixelWidth:\s+(\d+)/, 1]&.to_i
+      height = properties[/pixelHeight:\s+(\d+)/, 1]&.to_i
+      has_alpha = properties[/hasAlpha:\s+(\w+)/, 1]
+      UI.user_error!("Unsupported Mac screenshot size #{width}x#{height}: #{path}") unless accepted_sizes.include?([width, height])
+      UI.user_error!("App Store screenshots cannot contain alpha: #{path}") unless has_alpha == "no"
+    end
+    UI.success("Fastlane metadata and App Store screenshots are valid")
   end
 end

@@ -226,7 +226,7 @@ struct FileSystemDiskScanner: DiskScanning {
             let logicalRootPath = FileSystemDiskScanner.logicalPath(rootURL.path)
             let logicalItemPath = FileSystemDiskScanner.logicalPath(url.path)
             if logicalRootPath == "/" {
-                if logicalItemPath == "/.nofollow" || logicalItemPath == "/System/Volumes/Data" {
+                if url.path == "/.nofollow" || logicalItemPath == "/System/Volumes/Data" {
                     return true
                 }
             }

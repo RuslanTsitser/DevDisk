@@ -53,7 +53,7 @@ struct DetectorRule: Codable, Identifiable, Sendable {
     let scope: DetectorScope
     let ecosystems: Set<DeveloperEcosystem>
     let projectMarkers: Set<String>
-    let pathSuffixes: Set<String>
+    let pathPatterns: Set<String>
     let artifactKind: String
     let risk: ArtifactRisk
     let cleanupPolicy: CleanupPolicy
@@ -69,6 +69,30 @@ struct DeveloperProject: Identifiable, Hashable, Sendable {
     var name: String { rootURL.lastPathComponent }
 }
 
+struct ArtifactLocationEvidence: Hashable, Sendable {
+    enum Kind: String, Hashable, Sendable {
+        case projectMarker
+        case toolConfiguration
+        case environment
+        case documentedDefault
+        case toolMetadata
+
+        var title: String {
+            switch self {
+            case .projectMarker: "Project marker"
+            case .toolConfiguration: "Tool configuration"
+            case .environment: "Environment configuration"
+            case .documentedDefault: "Documented default"
+            case .toolMetadata: "Tool metadata"
+            }
+        }
+    }
+
+    let kind: Kind
+    let detail: String
+    let documentationURL: URL?
+}
+
 struct DeveloperArtifact: Identifiable, Hashable, Sendable {
     let id: URL
     let url: URL
@@ -81,8 +105,41 @@ struct DeveloperArtifact: Identifiable, Hashable, Sendable {
     let cleanupPolicy: CleanupPolicy
     let explanation: String
     let validationMarkerURLs: Set<URL>
+    let locationEvidence: ArtifactLocationEvidence
 
     var name: String { url.lastPathComponent }
+
+    init(
+        id: URL,
+        url: URL,
+        project: DeveloperProject?,
+        ecosystems: Set<DeveloperEcosystem>,
+        logicalSize: Int64,
+        allocatedSize: Int64,
+        artifactKind: String,
+        risk: ArtifactRisk,
+        cleanupPolicy: CleanupPolicy,
+        explanation: String,
+        validationMarkerURLs: Set<URL>,
+        locationEvidence: ArtifactLocationEvidence? = nil
+    ) {
+        self.id = id
+        self.url = url
+        self.project = project
+        self.ecosystems = ecosystems
+        self.logicalSize = logicalSize
+        self.allocatedSize = allocatedSize
+        self.artifactKind = artifactKind
+        self.risk = risk
+        self.cleanupPolicy = cleanupPolicy
+        self.explanation = explanation
+        self.validationMarkerURLs = validationMarkerURLs
+        self.locationEvidence = locationEvidence ?? ArtifactLocationEvidence(
+            kind: project == nil ? .documentedDefault : .projectMarker,
+            detail: project.map { "Detected relative to \($0.name)" } ?? "Detected from a known tool location",
+            documentationURL: nil
+        )
+    }
 }
 
 struct DeveloperInsights: Sendable {

@@ -226,7 +226,9 @@ final class DiskExplorerViewState {
                 let accessURL = rootAccessURL ?? updated.root.url
                 try await Task.detached(priority: .utility) {
                     try store.save(updated, rootURL: accessURL, scannedAt: savedAt)
+                    try store.recordSnapshot(updated, scannedAt: savedAt)
                 }.value
+                loadPreviousSizes()
             } catch is CancellationError {
                 return
             } catch {
@@ -235,6 +237,21 @@ final class DiskExplorerViewState {
             refreshingURL = nil
             refreshTask = nil
         }
+    }
+
+    func refresh(_ node: FileNode) {
+        refresh(BrowserItem(
+            url: node.url,
+            name: node.name,
+            isDirectory: node.isDirectory,
+            status: .completed,
+            logicalSize: node.logicalSize,
+            allocatedSize: node.allocatedSize,
+            fileCount: node.fileCount,
+            modifiedAt: node.modifiedAt,
+            accessStatus: node.accessStatus,
+            node: node
+        ))
     }
 
     func dismissRefreshError() {
@@ -300,6 +317,34 @@ final class DiskExplorerViewState {
         return insights.artifacts.first { $0.url == selectedURL }
     }
 
+    var filteredInsights: DeveloperInsights {
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty || ecosystemFilter != nil || riskFilter != nil || artifactKindFilter != nil else {
+            return insights
+        }
+        let artifacts = insights.artifacts.filter { artifact in
+            let matchesQuery = query.isEmpty
+                || artifact.name.localizedCaseInsensitiveContains(query)
+                || artifact.url.path.localizedCaseInsensitiveContains(query)
+            let matchesEcosystem = ecosystemFilter.map { artifact.ecosystems.contains($0) } ?? true
+            let matchesRisk = riskFilter.map { artifact.risk == $0 } ?? true
+            let matchesKind = artifactKindFilter.map { artifact.artifactKind == $0 } ?? true
+            return matchesQuery && matchesEcosystem && matchesRisk && matchesKind
+        }
+        let projectURLs = Set(artifacts.compactMap { $0.project?.rootURL })
+        return DeveloperInsights(
+            projects: insights.projects.filter { projectURLs.contains($0.rootURL) },
+            artifacts: artifacts
+        )
+    }
+
+    var hasActiveFilters: Bool {
+        !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || ecosystemFilter != nil
+            || riskFilter != nil
+            || artifactKindFilter != nil
+    }
+
     func select(_ url: URL?) {
         selectedURL = url
     }
@@ -309,8 +354,8 @@ final class DiskExplorerViewState {
         return currentSize - previous.allocatedSize
     }
 
-    var growthSummary: (added: Int, removed: Int, grown: Int, shrunk: Int) {
-        guard let root = currentResult?.root else { return (0, 0, 0, 0) }
+    var growthSummary: (added: Int, removed: Int, grown: Int, shrunk: Int)? {
+        guard !previousDirectorySizes.isEmpty, let root = currentResult?.root else { return nil }
         var current: [String: Int64] = [:]
         var pending = [root]
         while let node = pending.popLast() {

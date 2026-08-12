@@ -6,7 +6,7 @@ DevDisk is a free, open-source developer storage analyzer for macOS. It scans on
 
 There is no paywall, StoreKit integration, telemetry or cloud upload. Every first-iteration feature is available to everyone under Apache-2.0.
 
-![DevDisk first launch](fastlane/screenshots/en-US/devdisk-first-launch.png)
+![DevDisk first launch](fastlane/screenshots/en-US/devdisk-first-launch.jpg)
 
 ## What it does
 
@@ -34,6 +34,8 @@ DevDisk can move only verified `safeRebuildable` artifacts to the macOS Trash. I
 | Other | Python bytecode/virtualenvs, Git object storage, Docker storage |
 
 One URL is emitted once even when it has several ecosystem tags. Nested artifacts stay visible for explanation, while aggregate storage accounting uses the outermost owner so Flutter/Android/Apple bytes are not counted twice.
+
+Every global detector records whether its path came from a documented default, environment variable, tool configuration, or tool-owned metadata. See the [detector source and resolution matrix](docs/detector-sources.md); the same provenance is visible inside the app.
 
 ## Requirements
 
@@ -70,9 +72,9 @@ The macOS sandbox means DevDisk sees only the volume or folder selected through 
 
 ## Adding JSON detectors
 
-Simple project-relative detectors live in [`detector-rules.json`](DevDisk/Resources/detector-rules.json). A rule must provide a unique `id`, `scope`, one or more `ecosystems`, `projectMarkers`, `pathSuffixes`, an `artifactKind`, `risk`, `cleanupPolicy` and user-facing `description`.
+Simple project-relative detectors live in [`detector-rules.json`](DevDisk/Resources/detector-rules.json) and are checked against the repository's [`detector-rules.schema.json`](DevDisk/Resources/detector-rules.schema.json) shape plus runtime safety constraints. A rule must provide a unique `id`, project scope, one or more `ecosystems`, `projectMarkers`, safe exact project-relative `pathPatterns`, an `artifactKind`, `risk`, `cleanupPolicy` and user-facing `description`.
 
-Use `cleanupPolicy: "none"` by default. `safeRebuildable` is restricted in code to the documented allowlist and must have positive and negative tests. Global or tool-specific layouts belong in a Swift detector where their structure can be validated. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Use `cleanupPolicy: "none"` by default. `safeRebuildable` is restricted in code to the documented allowlist. A detector must cite a primary source and define its configuration precedence before code is added. Global or tool-specific layouts belong in a Swift detector where their structure can be validated. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Architecture
 

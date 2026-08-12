@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ruslantsitser.github.io/DevDisk/detector-rules.schema.json",
+  "title": "DevDisk project detector rules",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "id",
+      "scope",
+      "ecosystems",
+      "projectMarkers",
+      "pathPatterns",
+      "artifactKind",
+      "risk",
+      "cleanupPolicy",
+      "description"
+    ],
+    "properties": {
+      "id": { "type": "string", "minLength": 1, "pattern": "^[a-z0-9-]+$" },
+      "scope": { "const": "project" },
+      "ecosystems": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "enum": ["apple", "android", "flutter", "web", "node", "homebrew", "rust", "cpp", "python", "jvm", "git", "docker"]
+        }
+      },
+      "projectMarkers": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": { "type": "string", "minLength": 1 }
+      },
+      "pathPatterns": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+[^/]$"
+        }
+      },
+      "artifactKind": { "type": "string", "minLength": 1 },
+      "risk": { "enum": ["rebuildable", "redownloadable", "toolManaged", "reviewFirst", "userData"] },
+      "cleanupPolicy": { "enum": ["safeRebuildable", "none"] },
+      "description": { "type": "string", "minLength": 1 }
+    }
+  }
+}

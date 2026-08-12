@@ -5,6 +5,7 @@ struct DeveloperArtifactAnalyzer: ArtifactDetecting {
         let project: DeveloperProject
         let path: String
         let rules: [DetectorRule]
+        let webTools: Set<String>
     }
 
     private let projectDiscovery: any ProjectDiscovering
@@ -33,10 +34,12 @@ struct DeveloperArtifactAnalyzer: ArtifactDetecting {
             return ProjectContext(
                 project: project,
                 path: normalized(project.rootURL.path),
-                rules: rules
+                rules: rules,
+                webTools: Self.webTools(in: project)
             )
         }
         let projectsByRoot = Dictionary(grouping: projectContexts, by: \.path)
+        let preparedSystemDetector = systemDetector.prepared(for: projects)
         var artifactsByURL: [URL: DeveloperArtifact] = [:]
         var pending: [(node: FileNode, projects: [ProjectContext])] = [(root, [])]
 
@@ -53,17 +56,27 @@ struct DeveloperArtifactAnalyzer: ArtifactDetecting {
                     guard nodePath.hasPrefix(context.path + "/") else { continue }
                     let relative = String(nodePath.dropFirst(context.path.count + 1))
                     for rule in context.rules {
-                        guard matches(relative, suffixes: rule.pathSuffixes),
-                              rule.id != "cmake-build" || isConfirmedCMakeBuild(node)
+                        let isMatch = rule.id == "cmake-build"
+                            ? isConfirmedCMakeBuild(node, project: context.project)
+                            : matches(relative, rule: rule)
+                        guard isMatch,
+                              rule.id != "next-cache" || isConfirmedWebCache(relative, tools: context.webTools)
                         else { continue }
                         merge(
-                            artifact(for: node, project: context.project, rule: rule),
+                            artifact(
+                                for: node,
+                                project: context.project,
+                                rule: rule,
+                                isOwnedByFlutter: activeProjects.contains {
+                                    $0.project.ecosystems.contains(.flutter)
+                                }
+                            ),
                             into: &artifactsByURL
                         )
                     }
                 }
 
-                if let artifact = systemDetector.detect(node: node) {
+                if let artifact = preparedSystemDetector.detect(node: node) {
                     merge(artifact, into: &artifactsByURL)
                 }
             }
@@ -87,22 +100,27 @@ struct DeveloperArtifactAnalyzer: ArtifactDetecting {
     private func artifact(
         for node: FileNode,
         project: DeveloperProject,
-        rule: DetectorRule
+        rule: DetectorRule,
+        isOwnedByFlutter: Bool
     ) -> DeveloperArtifact {
         DeveloperArtifact(
             id: node.url,
             url: node.url,
             project: project,
-            ecosystems: project.ecosystems.intersection(rule.ecosystems).union(
-                project.ecosystems.contains(.flutter) ? [.flutter] : []
-            ),
+            ecosystems: project.ecosystems.intersection(rule.ecosystems)
+                .union(isOwnedByFlutter ? [.flutter] : []),
             logicalSize: node.logicalSize,
             allocatedSize: node.allocatedSize,
             artifactKind: rule.artifactKind,
             risk: rule.risk,
             cleanupPolicy: rule.cleanupPolicy,
             explanation: rule.description,
-            validationMarkerURLs: project.markerURLs
+            validationMarkerURLs: project.markerURLs,
+            locationEvidence: ArtifactLocationEvidence(
+                kind: .projectMarker,
+                detail: "Rule \(rule.id), verified by \(rule.projectMarkers.sorted().joined(separator: ", "))",
+                documentationURL: nil
+            )
         )
     }
 
@@ -130,7 +148,8 @@ struct DeveloperArtifactAnalyzer: ArtifactDetecting {
                     ? .safeRebuildable
                     : .none,
             explanation: preferred.explanation,
-            validationMarkerURLs: existing.validationMarkerURLs.union(artifact.validationMarkerURLs)
+            validationMarkerURLs: existing.validationMarkerURLs.union(artifact.validationMarkerURLs),
+            locationEvidence: preferred.locationEvidence
         )
     }
 
@@ -144,22 +163,61 @@ struct DeveloperArtifactAnalyzer: ArtifactDetecting {
         }
     }
 
-    private func matches(_ path: String, suffixes: Set<String>) -> Bool {
+    private func matches(_ path: String, rule: DetectorRule) -> Bool {
         let normalizedPath = normalized(path)
-        return suffixes.contains { suffix in
-            let value = normalized(suffix)
-            return normalizedPath == value || normalizedPath.hasSuffix("/" + value)
+        if rule.id == "python-cache" {
+            return normalizedPath.split(separator: "/").last == "__pycache__"
+        }
+        return rule.pathPatterns.contains { normalizedPath == normalized($0) }
+    }
+
+    private static func webTools(in project: DeveloperProject) -> Set<String> {
+        guard let packageURL = project.markerURLs.first(where: { $0.lastPathComponent == "package.json" }),
+              let data = try? Data(contentsOf: packageURL),
+              let package = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return [] }
+        var names: Set<String> = []
+        for key in ["dependencies", "devDependencies", "optionalDependencies"] {
+            guard let dependencies = package[key] as? [String: Any] else { continue }
+            names.formUnion(dependencies.keys)
+        }
+        return names
+    }
+
+    private func isConfirmedWebCache(_ path: String, tools: Set<String>) -> Bool {
+        let value = normalized(path)
+        switch value {
+        case ".next": return tools.contains("next")
+        case ".nuxt": return tools.contains("nuxt")
+        case ".vite", "node_modules/.vite": return tools.contains("vite")
+        case ".turbo": return tools.contains("turbo")
+        case ".nx/cache": return tools.contains("nx") || tools.contains { $0.hasPrefix("@nx/") }
+        case "node_modules/.cache":
+            let cacheProducers = [
+                "react-scripts", "webpack", "parcel", "@parcel/core", "babel-loader",
+                "eslint", "vite", "next", "nuxt"
+            ]
+            return !tools.isDisjoint(with: Set(cacheProducers))
+        default: return false
         }
     }
 
-    private func isConfirmedCMakeBuild(_ node: FileNode) -> Bool {
+    private func isConfirmedCMakeBuild(_ node: FileNode, project: DeveloperProject) -> Bool {
         guard node.isDirectory else { return false }
-        var pending = node.children ?? []
-        while let child = pending.popLast() {
-            if child.name == "CMakeCache.txt" || child.name == "CMakeFiles" { return true }
-            if let children = child.children { pending.append(contentsOf: children) }
-        }
-        return false
+        let childNames = Set((node.children ?? []).map(\.name))
+        guard childNames.contains("CMakeCache.txt"), childNames.contains("CMakeFiles"),
+              let cache = try? String(
+                contentsOf: node.url.appending(path: "CMakeCache.txt"),
+                encoding: .utf8
+              ),
+              let sourceLine = cache.split(whereSeparator: \.isNewline).first(where: {
+                  $0.hasPrefix("CMAKE_HOME_DIRECTORY:INTERNAL=")
+              }),
+              let separator = sourceLine.firstIndex(of: "=")
+        else { return false }
+        let sourcePath = String(sourceLine[sourceLine.index(after: separator)...])
+        return URL(filePath: sourcePath, directoryHint: .isDirectory).standardizedFileURL
+            == project.rootURL.standardizedFileURL
     }
 
     private func normalized(_ path: String) -> String {

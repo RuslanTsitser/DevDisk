@@ -15,6 +15,8 @@
 		371B76293DA2827F8BEEE2C3 /* DesktopCompositionRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = E286ADD8A5B6A030F6CC79BC /* DesktopCompositionRoot.swift */; };
 		3EC0E25B4B0379B3045C754F /* ProjectDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F084C7736313AB1C317C29F /* ProjectDiscoveryService.swift */; };
 		3F85BB14EFCBC6D21949F17F /* StubDiskScanStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EDF7C5EF9F1E29EF5010781 /* StubDiskScanStore.swift */; };
+		4953428831BD354C4410354A /* UserHomeDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = DED09AFFBC8C38169A1E3196 /* UserHomeDirectory.swift */; };
+		498DF88AAC11F7C361CA5C18 /* detector-rules.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = 733A39C71BB10FE3B2ED1E67 /* detector-rules.schema.json */; };
 		4D301FFE05DE0AECEB2A4057 /* DirectorySizeSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52FAE687F7A13A8077E977E /* DirectorySizeSnapshot.swift */; };
 		50EE83D5B620970B813307A0 /* SystemArtifactDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 886C9C56B5A95A259CB39A97 /* SystemArtifactDetector.swift */; };
 		51DC8470BBCF22582CFD8107 /* ScanProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = D60F6EA476EB4080EB7840C6 /* ScanProgress.swift */; };
@@ -33,19 +35,16 @@
 		D092D0D086AF1E88512A762D /* SavedDiskScan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0B9C2B99DC6704935FA7E9 /* SavedDiskScan.swift */; };
 		D26A90BFE5B6B1351634E7ED /* DiskScanning.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FC1474DE2ABF534971A5674 /* DiskScanning.swift */; };
 		D67EC9144B6AD672286AC6F7 /* DiskExplorerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 215B715AA5867469F70BD2AC /* DiskExplorerView.swift */; };
-		D71C5F2C265B2C18F6262331 /* OutlineTreeBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D9E8EA07402B81495E975C8 /* OutlineTreeBuilderTests.swift */; };
 		D7ED107605E1EB43C82C7A92 /* DiskScanStoring.swift in Sources */ = {isa = PBXBuildFile; fileRef = 983821BD31FAAB0A3A5E2772 /* DiskScanStoring.swift */; };
 		D88C88650F1A096B9E1E913C /* FileSystemDiskScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8187025103F009A47788D16A /* FileSystemDiskScanner.swift */; };
 		DADE06D1E80D6D7F966C17D3 /* SQLiteDiskScanStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 680C150E2DB52A5D53118621 /* SQLiteDiskScanStore.swift */; };
 		DBE32EB5ACFBA9532C0B21DE /* detector-rules.json in Resources */ = {isa = PBXBuildFile; fileRef = D7E278CC564AB8C890E46B97 /* detector-rules.json */; };
 		DED1DC0AF1530B79BA6DBEFC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F26F90C16B38640F6A43BA82 /* Assets.xcassets */; };
 		DED6433F05571F3782F5EE33 /* FileOutlineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F96C3B0EDB3D790519328C9 /* FileOutlineView.swift */; };
-		E0786D6A7B73D805E200A7D8 /* CSVArtifactExporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CE44567CA9A583A9B7399C8 /* CSVArtifactExporterTests.swift */; };
 		E1512668B2ECDA1DA91CEED1 /* ScanDiskUseCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1587F525B32336BC35E519B /* ScanDiskUseCaseTests.swift */; };
 		E890011F6C1CDE906206EBFE /* FileNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E5ABBA6E78FEDCD06B82699 /* FileNode.swift */; };
 		E9C8F47ED771170E9B408A01 /* DeveloperArtifactAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5170FAE9169362205868F43 /* DeveloperArtifactAnalyzer.swift */; };
 		EACCC0DCA32012E2D5EB1E6B /* DiskExplorerViewState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7AFC290DAC8CDB096663903 /* DiskExplorerViewState.swift */; };
-		EC2B6C9C9BDCBA3B14E0AAA9 /* DeveloperArtifactAnalyzerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 453F2E651FA8122ACDC3EF41 /* DeveloperArtifactAnalyzerTests.swift */; };
 		F03183F962E5C3A60D6E835D /* DeveloperArtifact.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DC76761718BF24E52D1571F /* DeveloperArtifact.swift */; };
 		F6D16038CB2618E1EC9B94BD /* StubDiskScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 478D312EA5851F1BF9F6CC25 /* StubDiskScanner.swift */; };
 /* End PBXBuildFile section */
@@ -70,12 +69,11 @@
 		3A0B9C2B99DC6704935FA7E9 /* SavedDiskScan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedDiskScan.swift; sourceTree = "<group>"; };
 		3EDF7C5EF9F1E29EF5010781 /* StubDiskScanStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubDiskScanStore.swift; sourceTree = "<group>"; };
 		42FF8F934908A978385B16FD /* StubDiskAccessRequester.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubDiskAccessRequester.swift; sourceTree = "<group>"; };
-		453F2E651FA8122ACDC3EF41 /* DeveloperArtifactAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperArtifactAnalyzerTests.swift; sourceTree = "<group>"; };
 		478D312EA5851F1BF9F6CC25 /* StubDiskScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubDiskScanner.swift; sourceTree = "<group>"; };
-		47E38D81E612E3DD668D6153 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		47E38D81E612E3DD668D6153 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		680C150E2DB52A5D53118621 /* SQLiteDiskScanStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLiteDiskScanStore.swift; sourceTree = "<group>"; };
-		6D9E8EA07402B81495E975C8 /* OutlineTreeBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutlineTreeBuilderTests.swift; sourceTree = "<group>"; };
 		6F084C7736313AB1C317C29F /* ProjectDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDiscoveryService.swift; sourceTree = "<group>"; };
+		733A39C71BB10FE3B2ED1E67 /* detector-rules.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "detector-rules.schema.json"; sourceTree = "<group>"; };
 		74AE8A6F0AC4C15C2893CA9B /* DiskAccessRequesting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskAccessRequesting.swift; sourceTree = "<group>"; };
 		7858BAA1D7EE115ED7A694A9 /* ArtifactCleanupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtifactCleanupService.swift; sourceTree = "<group>"; };
 		7C2A6CB15234C66E7A2DE1F3 /* ScanDiskUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanDiskUseCase.swift; sourceTree = "<group>"; };
@@ -86,7 +84,6 @@
 		802D3416D309DB8D971059DD /* DevDisk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DevDisk.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8187025103F009A47788D16A /* FileSystemDiskScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemDiskScanner.swift; sourceTree = "<group>"; };
 		886C9C56B5A95A259CB39A97 /* SystemArtifactDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemArtifactDetector.swift; sourceTree = "<group>"; };
-		8CE44567CA9A583A9B7399C8 /* CSVArtifactExporterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSVArtifactExporterTests.swift; sourceTree = "<group>"; };
 		8E5ABBA6E78FEDCD06B82699 /* FileNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileNode.swift; sourceTree = "<group>"; };
 		93F0D7C148205A7570282DF6 /* DeveloperAnalyzing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperAnalyzing.swift; sourceTree = "<group>"; };
 		978CE70772CB7F6D5508266D /* DesktopApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopApp.swift; sourceTree = "<group>"; };
@@ -100,6 +97,7 @@
 		D60F6EA476EB4080EB7840C6 /* ScanProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanProgress.swift; sourceTree = "<group>"; };
 		D7E278CC564AB8C890E46B97 /* detector-rules.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "detector-rules.json"; sourceTree = "<group>"; };
 		DB02AEA89B75D8F992A26562 /* DevDiskTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DevDiskTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DED09AFFBC8C38169A1E3196 /* UserHomeDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserHomeDirectory.swift; sourceTree = "<group>"; };
 		E286ADD8A5B6A030F6CC79BC /* DesktopCompositionRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopCompositionRoot.swift; sourceTree = "<group>"; };
 		EE4C05C596938CB9BBD2275B /* FileNodeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileNodeTests.swift; sourceTree = "<group>"; };
 		F1587F525B32336BC35E519B /* ScanDiskUseCaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanDiskUseCaseTests.swift; sourceTree = "<group>"; };
@@ -179,6 +177,7 @@
 			children = (
 				8187025103F009A47788D16A /* FileSystemDiskScanner.swift */,
 				7FD2FFED859AF29649886F32 /* MacOSDiskAccessRequester.swift */,
+				DED09AFFBC8C38169A1E3196 /* UserHomeDirectory.swift */,
 			);
 			path = FileSystem;
 			sourceTree = "<group>";
@@ -273,6 +272,7 @@
 			isa = PBXGroup;
 			children = (
 				D7E278CC564AB8C890E46B97 /* detector-rules.json */,
+				733A39C71BB10FE3B2ED1E67 /* detector-rules.schema.json */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -336,10 +336,7 @@
 		F2A6B6F8813A0700E62A68A1 /* ServiceTests */ = {
 			isa = PBXGroup;
 			children = (
-				8CE44567CA9A583A9B7399C8 /* CSVArtifactExporterTests.swift */,
-				453F2E651FA8122ACDC3EF41 /* DeveloperArtifactAnalyzerTests.swift */,
 				161D89C5593F62045B96D3DF /* FileSystemDiskScannerTests.swift */,
-				6D9E8EA07402B81495E975C8 /* OutlineTreeBuilderTests.swift */,
 				12098C04F2BFDF638EE48B03 /* SQLiteDiskScanStoreTests.swift */,
 			);
 			path = ServiceTests;
@@ -401,6 +398,8 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
 			};
 			buildConfigurationList = 2848497C2B0DB79785AD4049 /* Build configuration list for PBXProject "DevDisk" */;
 			developmentRegion = en;
@@ -430,6 +429,7 @@
 				DED1DC0AF1530B79BA6DBEFC /* Assets.xcassets in Resources */,
 				6FC9514BD3772A635BBACA73 /* PrivacyInfo.xcprivacy in Resources */,
 				DBE32EB5ACFBA9532C0B21DE /* detector-rules.json in Resources */,
+				498DF88AAC11F7C361CA5C18 /* detector-rules.schema.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -470,6 +470,7 @@
 				3F85BB14EFCBC6D21949F17F /* StubDiskScanStore.swift in Sources */,
 				F6D16038CB2618E1EC9B94BD /* StubDiskScanner.swift in Sources */,
 				50EE83D5B620970B813307A0 /* SystemArtifactDetector.swift in Sources */,
+				4953428831BD354C4410354A /* UserHomeDirectory.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -477,11 +478,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E0786D6A7B73D805E200A7D8 /* CSVArtifactExporterTests.swift in Sources */,
-				EC2B6C9C9BDCBA3B14E0AAA9 /* DeveloperArtifactAnalyzerTests.swift in Sources */,
 				03569FD940DC9E2F370388EB /* FileNodeTests.swift in Sources */,
 				B6B527A1E494E6ECC32A84C5 /* FileSystemDiskScannerTests.swift in Sources */,
-				D71C5F2C265B2C18F6262331 /* OutlineTreeBuilderTests.swift in Sources */,
 				18E98223B53E5FFB85D4D4EC /* SQLiteDiskScanStoreTests.swift in Sources */,
 				E1512668B2ECDA1DA91CEED1 /* ScanDiskUseCaseTests.swift in Sources */,
 			);
@@ -654,11 +652,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = DevDisk/DevDisk.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = XPQN3KYX5Z;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -670,7 +664,6 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.tsitser.devdisk;
 				PRODUCT_NAME = DevDisk;
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -680,11 +673,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = DevDisk/DevDisk.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = XPQN3KYX5Z;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -696,7 +685,6 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.tsitser.devdisk;
 				PRODUCT_NAME = DevDisk;
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = macosx;
 			};
 			name = Release;

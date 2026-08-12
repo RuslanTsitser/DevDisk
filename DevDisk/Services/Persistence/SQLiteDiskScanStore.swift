@@ -29,7 +29,10 @@ struct SQLiteDiskScanStore: DiskScanStoring {
         try database.prepareSchema()
 
         guard let metadata = try database.loadMetadata() else { return nil }
-        let root = try database.loadTree(rootID: metadata.rootNodeID)
+        let loadedRoot = try database.loadTree(rootID: metadata.rootNodeID)
+        let root = FileSystemDiskScanner.logicalPath(loadedRoot.url.path) == "/"
+            ? loadedRoot.removing(URL(filePath: "/.nofollow", directoryHint: .isDirectory))
+            : loadedRoot
 
         var isStale = false
         let rootURL = try URL(
@@ -147,65 +150,72 @@ private extension SQLiteDiskScanStore {
             try execute("PRAGMA foreign_keys = ON")
             try execute("PRAGMA journal_mode = WAL")
             try execute("PRAGMA synchronous = NORMAL")
-            try execute("""
-                CREATE TABLE IF NOT EXISTS scans (
-                    id INTEGER PRIMARY KEY CHECK (id = 1),
-                    root_bookmark BLOB NOT NULL,
-                    scanned_at REAL NOT NULL,
-                    skipped_item_count INTEGER NOT NULL,
-                    volume_total_capacity INTEGER,
-                    volume_available_capacity INTEGER,
-                    root_node_id INTEGER NOT NULL
-                )
-                """)
-            try execute("""
-                CREATE TABLE IF NOT EXISTS file_nodes (
-                    id INTEGER PRIMARY KEY,
-                    parent_id INTEGER,
-                    url TEXT NOT NULL,
-                    name TEXT NOT NULL,
-                    logical_size INTEGER NOT NULL DEFAULT 0,
-                    allocated_size INTEGER NOT NULL,
-                    file_count INTEGER NOT NULL,
-                    modified_at REAL,
-                    access_status TEXT NOT NULL DEFAULT 'readable',
-                    is_directory INTEGER NOT NULL
-                )
-                """)
-            try execute("CREATE INDEX IF NOT EXISTS file_nodes_parent ON file_nodes(parent_id)")
-            if version == 1 {
-                try execute("ALTER TABLE file_nodes ADD COLUMN logical_size INTEGER NOT NULL DEFAULT 0")
-                try execute("ALTER TABLE file_nodes ADD COLUMN modified_at REAL")
-                try execute("ALTER TABLE file_nodes ADD COLUMN access_status TEXT NOT NULL DEFAULT 'readable'")
-                try execute("UPDATE file_nodes SET logical_size = allocated_size")
-            }
-            try execute("""
-                CREATE TABLE IF NOT EXISTS scan_snapshots (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    scanned_at REAL NOT NULL
-                )
-                """)
-            try execute("""
-                CREATE TABLE IF NOT EXISTS directory_snapshots (
-                    snapshot_id INTEGER NOT NULL REFERENCES scan_snapshots(id) ON DELETE CASCADE,
-                    path TEXT NOT NULL,
-                    logical_size INTEGER NOT NULL,
-                    allocated_size INTEGER NOT NULL,
-                    PRIMARY KEY (snapshot_id, path)
-                )
-                """)
-            try execute("""
-                CREATE TABLE IF NOT EXISTS category_snapshots (
-                    snapshot_id INTEGER NOT NULL REFERENCES scan_snapshots(id) ON DELETE CASCADE,
-                    category_key TEXT NOT NULL,
-                    logical_size INTEGER NOT NULL,
-                    allocated_size INTEGER NOT NULL,
-                    artifact_count INTEGER NOT NULL,
-                    PRIMARY KEY (snapshot_id, category_key)
-                )
-                """)
-            if version < SQLiteDiskScanStore.schemaVersion {
-                try execute("PRAGMA user_version = \(SQLiteDiskScanStore.schemaVersion)")
+            try execute("BEGIN IMMEDIATE TRANSACTION")
+            do {
+                try execute("""
+                    CREATE TABLE IF NOT EXISTS scans (
+                        id INTEGER PRIMARY KEY CHECK (id = 1),
+                        root_bookmark BLOB NOT NULL,
+                        scanned_at REAL NOT NULL,
+                        skipped_item_count INTEGER NOT NULL,
+                        volume_total_capacity INTEGER,
+                        volume_available_capacity INTEGER,
+                        root_node_id INTEGER NOT NULL
+                    )
+                    """)
+                try execute("""
+                    CREATE TABLE IF NOT EXISTS file_nodes (
+                        id INTEGER PRIMARY KEY,
+                        parent_id INTEGER,
+                        url TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        logical_size INTEGER NOT NULL DEFAULT 0,
+                        allocated_size INTEGER NOT NULL,
+                        file_count INTEGER NOT NULL,
+                        modified_at REAL,
+                        access_status TEXT NOT NULL DEFAULT 'readable',
+                        is_directory INTEGER NOT NULL
+                    )
+                    """)
+                try execute("CREATE INDEX IF NOT EXISTS file_nodes_parent ON file_nodes(parent_id)")
+                if version == 1 {
+                    try execute("ALTER TABLE file_nodes ADD COLUMN logical_size INTEGER NOT NULL DEFAULT 0")
+                    try execute("ALTER TABLE file_nodes ADD COLUMN modified_at REAL")
+                    try execute("ALTER TABLE file_nodes ADD COLUMN access_status TEXT NOT NULL DEFAULT 'readable'")
+                    try execute("UPDATE file_nodes SET logical_size = allocated_size")
+                }
+                try execute("""
+                    CREATE TABLE IF NOT EXISTS scan_snapshots (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        scanned_at REAL NOT NULL
+                    )
+                    """)
+                try execute("""
+                    CREATE TABLE IF NOT EXISTS directory_snapshots (
+                        snapshot_id INTEGER NOT NULL REFERENCES scan_snapshots(id) ON DELETE CASCADE,
+                        path TEXT NOT NULL,
+                        logical_size INTEGER NOT NULL,
+                        allocated_size INTEGER NOT NULL,
+                        PRIMARY KEY (snapshot_id, path)
+                    )
+                    """)
+                try execute("""
+                    CREATE TABLE IF NOT EXISTS category_snapshots (
+                        snapshot_id INTEGER NOT NULL REFERENCES scan_snapshots(id) ON DELETE CASCADE,
+                        category_key TEXT NOT NULL,
+                        logical_size INTEGER NOT NULL,
+                        allocated_size INTEGER NOT NULL,
+                        artifact_count INTEGER NOT NULL,
+                        PRIMARY KEY (snapshot_id, category_key)
+                    )
+                    """)
+                if version < SQLiteDiskScanStore.schemaVersion {
+                    try execute("PRAGMA user_version = \(SQLiteDiskScanStore.schemaVersion)")
+                }
+                try execute("COMMIT")
+            } catch {
+                try? execute("ROLLBACK")
+                throw error
             }
         }
 
@@ -400,10 +410,14 @@ private extension SQLiteDiskScanStore {
                     ) VALUES (?, ?, ?, ?, ?)
                     """)
                 defer { sqlite3_finalize(categoryInsert) }
-                let accounting = insights.storageAccountingArtifacts
                 var categoryGroups: [String: [DeveloperArtifact]] = [:]
-                for artifact in accounting {
-                    categoryGroups["type:\(artifact.artifactKind)", default: []].append(artifact)
+                for (kind, artifacts) in Dictionary(grouping: insights.artifacts, by: \.artifactKind) {
+                    categoryGroups["type:\(kind)"] = DeveloperInsights(
+                        projects: [],
+                        artifacts: artifacts
+                    ).storageAccountingArtifacts
+                }
+                for artifact in insights.storageAccountingArtifacts {
                     for ecosystem in artifact.ecosystems {
                         categoryGroups["ecosystem:\(ecosystem.rawValue)", default: []].append(artifact)
                     }

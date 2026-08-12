@@ -1,0 +1,1 @@
+Initial release: expandable disk usage tree, developer artifact detection, scan history, CSV export, and verified rebuildable cleanup.
