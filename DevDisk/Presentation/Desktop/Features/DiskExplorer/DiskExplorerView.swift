@@ -173,14 +173,23 @@ struct DiskExplorerView: View {
                         ),
                         requestCleanup: { artifact in state.requestDeletion(of: artifact) }
                     )
-                    .frame(minWidth: 700)
+                    .frame(minWidth: 700, maxHeight: .infinity)
                     insightsPane
-                        .frame(minWidth: 300, idealWidth: 340, maxWidth: 420)
+                        .frame(
+                            minWidth: 300,
+                            idealWidth: 340,
+                            maxWidth: 420,
+                            maxHeight: .infinity
+                        )
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .layoutPriority(1)
+                .clipped()
             } else {
                 ContentUnavailableView("Waiting for completed folders", systemImage: "folder.badge.clock")
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var insightsPane: some View {
@@ -207,6 +216,7 @@ struct DiskExplorerView: View {
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.background.secondary)
     }
 
