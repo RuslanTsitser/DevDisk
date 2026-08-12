@@ -83,7 +83,7 @@ platform :mac do
   end
 
   desc "Upload macOS metadata and screenshots to App Store Connect"
-  lane :upload_store_content do
+  lane :upload_store_content do |options|
     key_id = ENV.fetch("APPSTORE_CONNECT_API_KEY")
     issuer_id = ENV.fetch("APPSTORE_CONNECT_ISSUER")
     key_path = ENV.fetch(
@@ -116,6 +116,8 @@ platform :mac do
 
     validate_store_content
 
+    upload_screenshots = options.fetch(:screenshots, true).to_s != "false"
+
     upload_to_app_store(
       api_key: api_key,
       app_identifier: ENV.fetch("DEVDISK_APP_IDENTIFIER", "com.tsitser.devdisk"),
@@ -125,8 +127,8 @@ platform :mac do
       screenshots_path: File.expand_path("screenshots", __dir__),
       skip_binary_upload: true,
       skip_metadata: false,
-      skip_screenshots: false,
-      overwrite_screenshots: true,
+      skip_screenshots: !upload_screenshots,
+      overwrite_screenshots: upload_screenshots,
       run_precheck_before_submit: false,
       submit_for_review: false,
       force: true
