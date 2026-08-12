@@ -39,6 +39,14 @@ Validate the local Fastlane metadata and screenshot layout without a store API c
 
 Upload macOS metadata and screenshots to App Store Connect
 
+### mac deploy
+
+```sh
+[bundle exec] fastlane mac deploy
+```
+
+Verify, build a signed Mac App Store package, and upload the binary and metadata
+
 ----
 
 This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.

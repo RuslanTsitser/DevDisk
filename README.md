@@ -58,9 +58,16 @@ bundle install
 bundle exec fastlane lanes
 bundle exec fastlane mac validate_store_content
 bundle exec fastlane mac verify
+bundle exec fastlane mac deploy
 ```
 
 Store metadata follows Fastlane's `fastlane/metadata` layout (`en-US` for localized fields) and screenshots live in `fastlane/screenshots/en-US`. Apple team and account values are optional environment variables documented in `fastlane/Appfile`; no credentials are committed.
+
+`fastlane mac deploy` validates the metadata, runs the tests, creates a signed Mac App Store `.pkg`, and uploads the binary and metadata with the App Store Connect API key. It derives the next build number from App Store Connect and does not submit the version for review by default. Optional overrides use Fastlane's key/value syntax:
+
+```sh
+bundle exec fastlane mac deploy build_number:2026081123 version:1.0 screenshots:true submit:false
+```
 
 The Xcode project is generated from `project.yml`. Commit changes to both the YAML and generated project so CI can validate that they agree.
 
@@ -68,7 +75,7 @@ The Xcode project is generated from `project.yml`. Commit changes to both the YA
 
 Scanning and detection run locally. The SQLite scan database and security-scoped bookmark are stored in the app container. DevDisk has no analytics, account, advertising or networking layer. See the [privacy policy](docs/privacy.md).
 
-The macOS sandbox means DevDisk sees only the volume or folder selected through the system picker. System protections may still make some directories inaccessible; these are shown as unavailable instead of being reported as empty. App Store review and distribution signing are not part of this iteration.
+The macOS sandbox means DevDisk sees only the volume or folder selected through the system picker. System protections may still make some directories inaccessible; these are shown as unavailable instead of being reported as empty. The deploy lane requires local distribution signing credentials and does not submit a version for App Store review unless `submit:true` is passed explicitly.
 
 ## Adding JSON detectors
 

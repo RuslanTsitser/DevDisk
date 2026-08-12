@@ -12,6 +12,40 @@ def validate_text_limit(path, maximum)
 end
 
 platform :mac do
+  private_lane :app_store_connect_credentials do
+    key_id = ENV.fetch("APPSTORE_CONNECT_API_KEY")
+    issuer_id = ENV.fetch("APPSTORE_CONNECT_ISSUER")
+    key_path = ENV.fetch(
+      "APPSTORE_CONNECT_API_KEY_PATH",
+      File.expand_path("AuthKey_#{key_id}.p8", __dir__)
+    )
+    UI.user_error!("App Store Connect API key not found: #{key_path}") unless File.file?(key_path)
+
+    app_store_connect_api_key(
+      key_id: key_id,
+      issuer_id: issuer_id,
+      key_filepath: key_path,
+      duration: 1_200,
+      in_house: false
+    )
+  end
+
+  private_lane :prepare_deliver do
+    # fastlane 2.237 fetches App Store review details even when no review
+    # attachment is configured. App Store Connect returns an empty payload for
+    # a brand-new version, which otherwise aborts metadata and screenshot upload.
+    require "deliver/upload_metadata"
+    unless Deliver::UploadMetadata.ancestors.any? { |ancestor| ancestor.name == "DevDiskFirstVersionReviewAttachmentFix" }
+      module ::DevDiskFirstVersionReviewAttachmentFix
+        def review_attachment_file(version)
+          return unless options[:app_review_attachment_file]
+          super
+        end
+      end
+      Deliver::UploadMetadata.prepend(DevDiskFirstVersionReviewAttachmentFix)
+    end
+  end
+
   desc "Generate the Xcode project and run the macOS test suite"
   lane :verify do
     Dir.chdir(project_root) do
@@ -21,6 +55,7 @@ platform :mac do
         "-project", "DevDisk.xcodeproj",
         "-scheme", "DevDisk",
         "-destination", "platform=macOS",
+        "-derivedDataPath", "DerivedData/Fastlane",
         "CODE_SIGNING_ALLOWED=NO",
         "test"
       )
@@ -84,35 +119,8 @@ platform :mac do
 
   desc "Upload macOS metadata and screenshots to App Store Connect"
   lane :upload_store_content do |options|
-    key_id = ENV.fetch("APPSTORE_CONNECT_API_KEY")
-    issuer_id = ENV.fetch("APPSTORE_CONNECT_ISSUER")
-    key_path = ENV.fetch(
-      "APPSTORE_CONNECT_API_KEY_PATH",
-      File.expand_path("AuthKey_#{key_id}.p8", __dir__)
-    )
-    UI.user_error!("App Store Connect API key not found: #{key_path}") unless File.file?(key_path)
-
-    api_key = app_store_connect_api_key(
-      key_id: key_id,
-      issuer_id: issuer_id,
-      key_filepath: key_path,
-      duration: 1_200,
-      in_house: false
-    )
-
-    # fastlane 2.237 fetches App Store review details even when no review
-    # attachment is configured. App Store Connect returns an empty payload for
-    # a brand-new version, which otherwise aborts metadata and screenshot upload.
-    require "deliver/upload_metadata"
-    unless Deliver::UploadMetadata.ancestors.any? { |ancestor| ancestor.name == "DevDiskFirstVersionReviewAttachmentFix" }
-      module ::DevDiskFirstVersionReviewAttachmentFix
-        def review_attachment_file(version)
-          return unless options[:app_review_attachment_file]
-          super
-        end
-      end
-      Deliver::UploadMetadata.prepend(DevDiskFirstVersionReviewAttachmentFix)
-    end
+    api_key = app_store_connect_credentials
+    prepare_deliver
 
     validate_store_content
 
@@ -131,6 +139,81 @@ platform :mac do
       overwrite_screenshots: upload_screenshots,
       run_precheck_before_submit: false,
       submit_for_review: false,
+      force: true
+    )
+  end
+
+  desc "Verify, build a signed Mac App Store package, and upload the binary and metadata"
+  lane :deploy do |options|
+    api_key = app_store_connect_credentials
+    prepare_deliver
+    validate_store_content
+    verify
+
+    app_identifier = ENV.fetch("DEVDISK_APP_IDENTIFIER", "com.tsitser.devdisk")
+    app_version = options.fetch(:version, ENV.fetch("DEVDISK_APP_VERSION", "1.0")).to_s
+    team_id = ENV.fetch("APPLE_TEAM_ID", "XPQN3KYX5Z")
+    UI.user_error!("version must be a numeric dotted version") unless app_version.match?(/\A\d+(?:\.\d+){0,2}\z/)
+    UI.user_error!("APPLE_TEAM_ID must be a 10-character team identifier") unless team_id.match?(/\A[A-Z0-9]{10}\z/)
+    build_number = options[:build_number]&.to_s
+    if build_number.to_s.empty?
+      latest_build_number = latest_testflight_build_number(
+        api_key: api_key,
+        app_identifier: app_identifier,
+        version: app_version,
+        platform: "osx",
+        initial_build_number: 0
+      )
+      build_number = (latest_build_number.to_i + 1).to_s
+    end
+    UI.user_error!("build_number must contain digits only") unless build_number.match?(/\A\d+\z/)
+
+    output_directory = File.join(project_root, "build", "app-store")
+    output_name = "DevDisk-#{app_version}-#{build_number}"
+    pkg_path = build_app(
+      project: File.join(project_root, "DevDisk.xcodeproj"),
+      scheme: "DevDisk",
+      configuration: "Release",
+      destination: "generic/platform=macOS",
+      clean: true,
+      output_directory: output_directory,
+      output_name: output_name,
+      archive_path: File.join(output_directory, "#{output_name}.xcarchive"),
+      derived_data_path: File.join(output_directory, "DerivedData"),
+      export_team_id: team_id,
+      export_options: {
+        method: "app-store-connect",
+        destination: "export",
+        signingStyle: "automatic",
+        teamID: team_id,
+        manageAppVersionAndBuildNumber: false
+      },
+      xcargs: [
+        "-allowProvisioningUpdates",
+        "DEVELOPMENT_TEAM=#{team_id}",
+        "CODE_SIGN_STYLE=Automatic",
+        "MARKETING_VERSION=#{app_version}",
+        "CURRENT_PROJECT_VERSION=#{build_number}"
+      ].join(" ")
+    )
+    UI.user_error!("Fastlane did not produce a .pkg: #{pkg_path}") unless pkg_path&.end_with?(".pkg") && File.file?(pkg_path)
+
+    upload_screenshots = options.fetch(:screenshots, false).to_s == "true"
+    submit_for_review = options.fetch(:submit, false).to_s == "true"
+    upload_to_app_store(
+      api_key: api_key,
+      app_identifier: app_identifier,
+      app_version: app_version,
+      platform: "osx",
+      pkg: pkg_path,
+      metadata_path: File.expand_path("metadata", __dir__),
+      screenshots_path: File.expand_path("screenshots", __dir__),
+      skip_binary_upload: false,
+      skip_metadata: false,
+      skip_screenshots: !upload_screenshots,
+      overwrite_screenshots: upload_screenshots,
+      run_precheck_before_submit: false,
+      submit_for_review: submit_for_review,
       force: true
     )
   end
