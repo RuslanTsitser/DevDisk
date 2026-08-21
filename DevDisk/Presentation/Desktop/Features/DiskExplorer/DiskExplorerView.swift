@@ -46,6 +46,24 @@ struct DiskExplorerView: View {
                 Text("\(artifact.name) uses \(artifact.allocatedSize.formatted(.byteCount(style: .file))). The project marker will be checked again before deletion.")
             }
         }
+        .confirmationDialog(
+            "Delete folder?",
+            isPresented: Binding(
+                get: { state.directoryPendingDeletion != nil },
+                set: { if !$0 { state.cancelDeletion() } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let directory = state.directoryPendingDeletion {
+                Button("Move to Trash", role: .destructive) { state.moveDirectoryToTrash(directory) }
+                Button("Delete Permanently", role: .destructive) { state.deleteDirectoryPermanently(directory) }
+            }
+            Button("Cancel", role: .cancel) { state.cancelDeletion() }
+        } message: {
+            if let directory = state.directoryPendingDeletion {
+                Text("\(directory.name) and all of its contents will be deleted. Moving it to the Trash can be undone in Finder; permanent deletion cannot.")
+            }
+        }
     }
 
     private var toolbar: some View {
@@ -371,9 +389,11 @@ struct DiskExplorerView: View {
                     state.refresh(node)
                 }
                 .disabled(state.refreshingURL != nil)
+                Button("Delete Folder", systemImage: "trash", role: .destructive) {
+                    state.requestDeletion(of: node)
+                }
+                .disabled(state.refreshingURL != nil)
             }
-            Label("Regular filesystem items are read-only in DevDisk.", systemImage: "lock.shield")
-                .font(.caption).foregroundStyle(.secondary)
         }
     }
 

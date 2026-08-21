@@ -39,6 +39,7 @@
 		D88C88650F1A096B9E1E913C /* FileSystemDiskScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8187025103F009A47788D16A /* FileSystemDiskScanner.swift */; };
 		DADE06D1E80D6D7F966C17D3 /* SQLiteDiskScanStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 680C150E2DB52A5D53118621 /* SQLiteDiskScanStore.swift */; };
 		DBE32EB5ACFBA9532C0B21DE /* detector-rules.json in Resources */ = {isa = PBXBuildFile; fileRef = D7E278CC564AB8C890E46B97 /* detector-rules.json */; };
+		DD50A9269CCEDD00BD564055 /* DirectoryDeletionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 826C3C3A8ED91AAA30D258C1 /* DirectoryDeletionService.swift */; };
 		DED1DC0AF1530B79BA6DBEFC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F26F90C16B38640F6A43BA82 /* Assets.xcassets */; };
 		DED6433F05571F3782F5EE33 /* FileOutlineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F96C3B0EDB3D790519328C9 /* FileOutlineView.swift */; };
 		E1512668B2ECDA1DA91CEED1 /* ScanDiskUseCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1587F525B32336BC35E519B /* ScanDiskUseCaseTests.swift */; };
@@ -83,6 +84,7 @@
 		7FD2FFED859AF29649886F32 /* MacOSDiskAccessRequester.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacOSDiskAccessRequester.swift; sourceTree = "<group>"; };
 		802D3416D309DB8D971059DD /* DevDisk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DevDisk.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8187025103F009A47788D16A /* FileSystemDiskScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemDiskScanner.swift; sourceTree = "<group>"; };
+		826C3C3A8ED91AAA30D258C1 /* DirectoryDeletionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectoryDeletionService.swift; sourceTree = "<group>"; };
 		886C9C56B5A95A259CB39A97 /* SystemArtifactDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemArtifactDetector.swift; sourceTree = "<group>"; };
 		8E5ABBA6E78FEDCD06B82699 /* FileNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileNode.swift; sourceTree = "<group>"; };
 		93F0D7C148205A7570282DF6 /* DeveloperAnalyzing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperAnalyzing.swift; sourceTree = "<group>"; };
@@ -175,6 +177,7 @@
 		3A4BA0CC1F1F57FE57EED615 /* FileSystem */ = {
 			isa = PBXGroup;
 			children = (
+				826C3C3A8ED91AAA30D258C1 /* DirectoryDeletionService.swift */,
 				8187025103F009A47788D16A /* FileSystemDiskScanner.swift */,
 				7FD2FFED859AF29649886F32 /* MacOSDiskAccessRequester.swift */,
 				DED09AFFBC8C38169A1E3196 /* UserHomeDirectory.swift */,
@@ -453,6 +456,7 @@
 				5CD75F11FDC0C0F40F6EAD9C /* DeveloperAnalyzing.swift in Sources */,
 				F03183F962E5C3A60D6E835D /* DeveloperArtifact.swift in Sources */,
 				E9C8F47ED771170E9B408A01 /* DeveloperArtifactAnalyzer.swift in Sources */,
+				DD50A9269CCEDD00BD564055 /* DirectoryDeletionService.swift in Sources */,
 				4D301FFE05DE0AECEB2A4057 /* DirectorySizeSnapshot.swift in Sources */,
 				BC15D0AA5933BF771FC5D0F9 /* DiskAccessRequesting.swift in Sources */,
 				D67EC9144B6AD672286AC6F7 /* DiskExplorerView.swift in Sources */,

@@ -40,6 +40,7 @@ final class DiskExplorerViewState {
     private(set) var refreshingURL: URL?
     private(set) var refreshError: String?
     private(set) var artifactPendingDeletion: DeveloperArtifact?
+    private(set) var directoryPendingDeletion: FileNode?
     private(set) var insights: DeveloperInsights = .empty
     private(set) var isAnalyzing = false
     private(set) var previousDirectorySizes: [String: DirectorySizeSnapshot] = [:]
@@ -55,6 +56,7 @@ final class DiskExplorerViewState {
     private let diskAccessRequester: any DiskAccessRequesting
     private let artifactAnalyzer: any ArtifactDetecting
     private let cleanupService: any CleanupServicing
+    private let directoryDeletionService: any DirectoryDeletionServicing
     @ObservationIgnored private var scanTask: Task<Void, Never>?
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
     @ObservationIgnored private var scanEventBuffer: ScanEventBuffer?
@@ -71,6 +73,7 @@ final class DiskExplorerViewState {
         diskAccessRequester: any DiskAccessRequesting,
         artifactAnalyzer: any ArtifactDetecting = DeveloperArtifactAnalyzer(),
         cleanupService: any CleanupServicing = ArtifactCleanupService(),
+        directoryDeletionService: any DirectoryDeletionServicing = DirectoryDeletionService(),
         initialDirectories: [ScannedDirectory] = [],
         initialPhase: Phase = .idle
     ) {
@@ -79,6 +82,7 @@ final class DiskExplorerViewState {
         self.diskAccessRequester = diskAccessRequester
         self.artifactAnalyzer = artifactAnalyzer
         self.cleanupService = cleanupService
+        self.directoryDeletionService = directoryDeletionService
         phase = initialPhase
         directoryUpdates = Dictionary(uniqueKeysWithValues: initialDirectories.map { ($0.url, $0) })
         for directory in initialDirectories {
@@ -437,8 +441,72 @@ final class DiskExplorerViewState {
         artifactPendingDeletion = artifact
     }
 
+    func requestDeletion(of directory: FileNode) {
+        guard let root = currentResult?.root,
+              directoryDeletionService.validateForDeletion(directory, within: root.url),
+              refreshingURL == nil
+        else { return }
+        directoryPendingDeletion = directory
+    }
+
     func cancelDeletion() {
         artifactPendingDeletion = nil
+        directoryPendingDeletion = nil
+    }
+
+    func moveDirectoryToTrash(_ directory: FileNode) {
+        delete(directory, using: { service, root in
+            try service.moveToTrash(directory, within: root)
+        }, failurePrefix: "Could not move")
+    }
+
+    func deleteDirectoryPermanently(_ directory: FileNode) {
+        delete(directory, using: { service, root in
+            try service.deletePermanently(directory, within: root)
+        }, failurePrefix: "Could not permanently delete")
+    }
+
+    private func delete(
+        _ directory: FileNode,
+        using operation: @escaping (any DirectoryDeletionServicing, URL) throws -> Void,
+        failurePrefix: String
+    ) {
+        guard directoryPendingDeletion?.url == directory.url,
+              case let .loaded(result) = phase,
+              directoryDeletionService.validateForDeletion(directory, within: result.root.url),
+              refreshingURL == nil
+        else { return }
+
+        directoryPendingDeletion = nil
+        refreshingURL = directory.url
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try operation(directoryDeletionService, result.root.url)
+                let updated = DiskScanResult(
+                    root: result.root.removing(directory.url),
+                    skippedItemCount: result.skippedItemCount,
+                    volumeTotalCapacity: result.volumeTotalCapacity,
+                    volumeAvailableCapacity: result.volumeAvailableCapacity
+                )
+                phase = .loaded(updated)
+                selectedURL = nil
+                analyze(updated)
+                let savedAt = Date()
+                scannedAt = savedAt
+                let store = store
+                let accessURL = rootAccessURL ?? updated.root.url
+                try? await Task.detached(priority: .utility) {
+                    try store.save(updated, rootURL: accessURL, scannedAt: savedAt)
+                    try store.recordSnapshot(updated, scannedAt: savedAt)
+                }.value
+                loadPreviousSizes()
+                refreshingURL = nil
+            } catch {
+                refreshError = "\(failurePrefix) \(directory.name): \(error.localizedDescription)"
+                refreshingURL = nil
+            }
+        }
     }
 
     func moveToTrash(_ artifact: DeveloperArtifact) {
